@@ -1,4 +1,7 @@
-use serenity::all::CreateAllowedMentions;
+use lumi::CreateReply;
+use serenity::all::{
+    CreateAllowedMentions, CreateAttachment, CreateComponent, CreateTextDisplay, MessageFlags,
+};
 
 use crate::{Context, Error};
 use std::fmt::Write;
@@ -9,10 +12,12 @@ use std::fmt::Write;
     prefix_command,
     category = "Utility",
     install_context = "Guild|User",
-    interaction_context = "Guild|BotDm|PrivateChannel"
+    interaction_context = "Guild|BotDm|PrivateChannel",
+    aliases("chars", "char-info")
 )]
 pub async fn charinfo(
     ctx: Context<'_>,
+    hidden: Option<bool>,
     #[description = "String containing characters"]
     #[rest]
     string: String,
@@ -37,18 +42,29 @@ pub async fn charinfo(
         }
     }
 
-    if result.len() > 2000 {
-        ctx.say("Message too long.").await?;
+    if result.len() > 4000 {
+        ctx.send(CreateReply::new().attachment(CreateAttachment::bytes(result, "chars.txt")))
+            .await?;
         return Ok(());
     }
 
+    // fix upstream first
+    let mut flags = MessageFlags::IS_COMPONENTS_V2;
+
+    if hidden.unwrap_or(true) {
+        flags |= MessageFlags::EPHEMERAL;
+    }
+
     ctx.send(
-        lumi::CreateReply::new().content(result).allowed_mentions(
-            CreateAllowedMentions::new()
-                .everyone(false)
-                .all_roles(false)
-                .all_users(false),
-        ),
+        CreateReply::new()
+            .components(&[CreateComponent::TextDisplay(CreateTextDisplay::new(result))])
+            .allowed_mentions(
+                CreateAllowedMentions::new()
+                    .everyone(false)
+                    .all_roles(false)
+                    .all_users(false),
+            )
+            .flags(flags),
     )
     .await?;
 
