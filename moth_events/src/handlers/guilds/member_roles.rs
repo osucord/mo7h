@@ -145,7 +145,7 @@ async fn kick_prune_ban(
             println!("{MAGENTA}[{guild_name}] {target} was banned by {user}.\nReason: {reason}");
         }
         MemberAction::BanRemove => {
-            println!("{MAGENTA}[{guild_name}] {target} was unbanned by {user}.Reason: {reason}");
+            println!("{MAGENTA}[{guild_name}] {target} was unbanned by {user}.\nReason: {reason}");
         }
         _ => unreachable!(),
     }
