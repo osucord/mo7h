@@ -19,10 +19,12 @@ dashmap = { workspace = true }
 tracing-subscriber = "0.3.18"
 dotenvy = "0.15.7"
 bitflags = "2.8.0"
+rosu-v2.workspace = true
+handlebars.workspace = true
 
 
 [workspace]
-members = [ "moth_core", "moth_events", "moth_commands", "moth_filter", "moth_ansi", "moth_starboard"]
+members = [ "moth_core", "moth_events", "moth_commands", "moth_filter", "moth_ansi", "moth_starboard", "osu-verification"]
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "signal", "parking_lot"] }
@@ -43,6 +45,8 @@ regex = "1.11.1"
 serde = "1"
 serde_json = "1"
 leptess = "0.14.0"
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer" }
+handlebars = { version = "6.3.2", features = ["dir_source"] }
 
 [workspace.dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity"

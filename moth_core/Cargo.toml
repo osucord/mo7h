@@ -21,3 +21,5 @@ regex.workspace = true
 base64 = "0.22"
 leptess.workspace = true
 bitflags = "2.8.0"
+rosu-v2.workspace = true
+handlebars.workspace = true

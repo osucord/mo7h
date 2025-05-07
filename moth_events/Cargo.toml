@@ -33,3 +33,4 @@ unicode-segmentation.workspace = true
 emojis.workspace = true
 rustrict.workspace = true
 aformat = "0.1.8"
+osu-verification = { version = "0.1.0", path = "../osu-verification" }

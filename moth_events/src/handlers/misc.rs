@@ -35,4 +35,7 @@ fn finalize_start(data: &Arc<Data>) {
             data_clone.anti_delete_cache.decay_proc();
         }
     });
+
+    let data_clone = data.clone();
+    tokio::spawn(osu_verification::run(data_clone));
 }

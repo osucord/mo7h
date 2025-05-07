@@ -1,6 +1,7 @@
 use dashmap::DashMap;
 use parking_lot::RwLock;
-use serenity::all::{ChannelId, Member, RoleId};
+use rosu_v2::Osu;
+use serenity::all::{ChannelId, Member, RoleId, SecretString};
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
@@ -33,6 +34,14 @@ pub struct Data {
     pub ocr_engine: crate::ocr::OcrEngine,
     /// ugh
     pub new_join_vc: DashMap<UserId, Fuck>,
+    pub web: WebServer,
+}
+
+pub struct WebServer {
+    pub osu: Osu,
+    pub handlebars: handlebars::Handlebars<'static>,
+    pub osu_client_id: u64,
+    pub osu_client_secret: SecretString,
 }
 
 #[derive(Clone, Debug)]
