@@ -18,14 +18,15 @@ pub async fn ready(ctx: &serenity::Context, ready: &Ready, data: Arc<Data>) -> R
     let is_last_shard = (ctx.shard_id.0 + 1) == shard_count.get();
 
     if is_last_shard && !data.has_started.swap(true, Ordering::SeqCst) {
-        finalize_start(&data);
+        finalize_start(ctx).await;
         println!("Logged in as {}", ready.user.tag());
     }
 
     Ok(())
 }
 
-fn finalize_start(data: &Arc<Data>) {
+async fn finalize_start(ctx: &serenity::Context) {
+    let data = ctx.data::<Data>();
     let data_clone = data.clone();
 
     tokio::spawn(async move {
@@ -37,5 +38,6 @@ fn finalize_start(data: &Arc<Data>) {
     });
 
     let data_clone = data.clone();
-    tokio::spawn(osu_verification::run(data_clone));
+    tokio::spawn(moth_core::verification::run(data_clone));
+    data.web.start_background_task(ctx.clone()).await;
 }

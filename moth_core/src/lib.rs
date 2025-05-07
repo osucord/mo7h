@@ -14,3 +14,5 @@ pub mod config;
 pub mod data;
 pub mod emojis;
 pub mod ocr;
+pub mod standby;
+pub mod verification;

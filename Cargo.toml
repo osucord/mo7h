@@ -11,7 +11,6 @@ moth_commands = { path = "moth_commands" }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 lumi = { workspace = true }
-serenity = { workspace = true }
 reqwest = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
@@ -21,10 +20,11 @@ dotenvy = "0.15.7"
 bitflags = "2.8.0"
 rosu-v2.workspace = true
 handlebars.workspace = true
+serenity.workspace = true
 
 
 [workspace]
-members = [ "moth_core", "moth_events", "moth_commands", "moth_filter", "moth_ansi", "moth_starboard", "osu-verification"]
+members = [ "moth_core", "moth_events", "moth_commands", "moth_filter", "moth_ansi", "moth_starboard"]
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "signal", "parking_lot"] }

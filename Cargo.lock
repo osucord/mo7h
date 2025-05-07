@@ -2054,6 +2054,7 @@ dependencies = [
  "rand 0.9.1",
  "regex",
  "reqwest",
+ "rosu-v2",
  "serde",
  "serde_json",
  "serenity",
@@ -2071,6 +2072,7 @@ dependencies = [
 name = "moth_core"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "base64",
  "bitflags 2.9.0",
  "chrono",
@@ -2089,6 +2091,8 @@ dependencies = [
  "serenity",
  "sqlx",
  "tokio",
+ "tokio-util",
+ "tower-http",
  "tracing",
 ]
 
@@ -2109,7 +2113,6 @@ dependencies = [
  "moth_filter",
  "moth_starboard",
  "nonmax",
- "osu-verification",
  "regex",
  "resvg",
  "rustrict",
@@ -2368,19 +2371,6 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "osu-verification"
-version = "0.1.0"
-dependencies = [
- "axum",
- "handlebars",
- "moth_core",
- "rosu-v2",
- "serde",
- "tokio",
- "tower-http",
 ]
 
 [[package]]
@@ -4227,6 +4217,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
+ "slab",
  "tokio",
 ]
 

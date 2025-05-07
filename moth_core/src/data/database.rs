@@ -1,16 +1,22 @@
 use ::serenity::{
     all::{GenericChannelId, MessageId, ReactionType},
+    futures::FutureExt,
     small_fixed_array,
 };
+use chrono::Utc;
 use dashmap::{DashMap, DashSet};
 use parking_lot::Mutex;
 use regex::Regex;
+use rosu_v2::{model::GameMode, prelude::UserExtended};
 use serenity::all::UserId;
 use sqlx::{Executor, PgPool, postgres::PgPoolOptions, query};
 use std::{
     collections::{HashMap, HashSet},
     env,
+    pin::Pin,
+    task::Poll,
 };
+use tokio::time::Timeout;
 
 use crate::data::structs::{DmActivity, Error};
 
@@ -843,9 +849,80 @@ impl Database {
         Ok(true)
     }
 
+    pub async fn get_gamemode(&self, user_id: UserId, osu_id: u32) -> Result<GameMode, Error> {
+        let res = query!(
+            "SELECT gamemode FROM verified_users WHERE user_id = $1 AND osu_id = $2",
+            user_id.get() as i64,
+            osu_id as i32
+        )
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok((res.gamemode as u8).into())
+    }
+
+    pub async fn inactive_user(&self, user_id: UserId) -> Result<(), Error> {
+        Ok(query!(
+            "UPDATE verified_users SET is_active = FALSE WHERE user_id = $1",
+            user_id.get() as i64,
+        )
+        .execute(&self.db)
+        .await
+        .map(|_| ())?)
+    }
+
+    pub async fn verify_user(&self, user_id: UserId, osu_id: u32) -> Result<(), Error> {
+        let now = Utc::now().timestamp();
+
+        dbg!(
+            query!(
+                r#"
+            INSERT INTO verified_users (user_id, osu_id, last_updated, is_active, gamemode)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (user_id)
+            DO UPDATE SET
+                last_updated = EXCLUDED.last_updated,
+                is_active = EXCLUDED.is_active
+            "#,
+                user_id.get() as i64,
+                osu_id as i32,
+                now,
+                true,
+                0
+            )
+            .execute(&self.db)
+            .await?
+        );
+
+        Ok(())
+    }
+
     // temporary function to give access to the inner command overwrites while i figure something out.
     #[must_use]
     pub fn inner_overwrites(&self) -> &Checks {
         &self.owner_overwrites
+    }
+}
+
+pub struct WaitForOsuAuth {
+    pub state: u8,
+    fut: Pin<Box<Timeout<tokio::sync::oneshot::Receiver<UserExtended>>>>,
+}
+pub enum AuthenticationStandbyError {
+    Canceled,
+    Timeout,
+}
+
+impl Future for WaitForOsuAuth {
+    type Output = Result<UserExtended, AuthenticationStandbyError>;
+
+    #[inline]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        match self.fut.poll_unpin(cx) {
+            Poll::Ready(Ok(Ok(user))) => Poll::Ready(Ok(user)),
+            Poll::Ready(Ok(Err(_))) => Poll::Ready(Err(AuthenticationStandbyError::Canceled)),
+            Poll::Ready(Err(_)) => Poll::Ready(Err(AuthenticationStandbyError::Timeout)),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

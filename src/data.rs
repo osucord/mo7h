@@ -1,7 +1,6 @@
 use dashmap::DashMap;
 use moth_core::data::structs::{Data, StarboardConfig, WebServer};
-use rosu_v2::Osu;
-use serenity::all::{GenericChannelId, GuildId, RoleId, SecretString};
+use serenity::all::{GenericChannelId, GuildId, RoleId};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub async fn setup() -> Arc<Data> {
@@ -9,14 +8,6 @@ pub async fn setup() -> Arc<Data> {
 
     let config = moth_core::config::MothConfig::load_config();
     let starboard_config = starboard_config();
-
-    let client_id = std::env::var("CLIENT_ID").unwrap().parse::<u64>().unwrap();
-    let client_secret = std::env::var("CLIENT_SECRET").unwrap();
-
-    let mut handlebars = handlebars::Handlebars::new();
-    handlebars
-        .register_template_file("index", "./web/auth/index.hbs")
-        .expect("Failed to register template");
 
     Arc::new(Data {
         has_started: AtomicBool::new(false),
@@ -28,12 +19,7 @@ pub async fn setup() -> Arc<Data> {
         starboard_config,
         ocr_engine: moth_core::ocr::OcrEngine::new(),
         new_join_vc: DashMap::default(),
-        web: WebServer {
-            osu: Osu::new(client_id, client_secret.clone()).await.unwrap(),
-            osu_client_id: client_id,
-            osu_client_secret: SecretString::new(client_secret.into()),
-            handlebars,
-        },
+        web: WebServer::new().await,
     })
 }
 
