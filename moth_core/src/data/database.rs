@@ -874,9 +874,10 @@ impl Database {
     pub async fn verify_user(&self, user_id: UserId, osu_id: u32) -> Result<(), Error> {
         let now = Utc::now().timestamp();
 
-        dbg!(
-            query!(
-                r#"
+        self.insert_user(user_id).await?;
+
+        query!(
+            r#"
             INSERT INTO verified_users (user_id, osu_id, last_updated, is_active, gamemode)
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (user_id)
@@ -884,15 +885,49 @@ impl Database {
                 last_updated = EXCLUDED.last_updated,
                 is_active = EXCLUDED.is_active
             "#,
-                user_id.get() as i64,
-                osu_id as i32,
-                now,
-                true,
-                0
-            )
-            .execute(&self.db)
-            .await?
-        );
+            user_id.get() as i64,
+            osu_id as i32,
+            now,
+            true,
+            0
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn unlink_user(&self, user_id: UserId) -> Result<u32, Error> {
+        let record = query!(
+            "DELETE FROM verified_users WHERE user_id = $1 RETURNING osu_id",
+            user_id.get() as i64
+        )
+        .fetch_optional(&self.db)
+        .await?;
+
+        Ok(record.unwrap().osu_id as u32)
+    }
+
+    pub async fn get_osu_user_id(&self, user_id: UserId) -> Option<(u32, GameMode)> {
+        let query = query!(
+            "SELECT osu_id, gamemode FROM verified_users WHERE user_id = $1",
+            user_id.get() as i64
+        )
+        .fetch_one(&self.db)
+        .await
+        .ok()?;
+
+        Some((query.osu_id as u32, (query.gamemode as u8).into()))
+    }
+
+    pub async fn change_mode(&self, user_id: UserId, gamemode: GameMode) -> Result<(), Error> {
+        query!(
+            "UPDATE verified_users SET gamemode = $1 WHERE user_id = $2",
+            gamemode as i8,
+            user_id.get() as i64
+        )
+        .execute(&self.db)
+        .await?;
 
         Ok(())
     }

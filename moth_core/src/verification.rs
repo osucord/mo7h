@@ -114,6 +114,20 @@ impl VerificationSender {
         lock.as_ref().map(|s| s.send(VerificationCommand::Shutdown));
     }
 
+    pub async fn verify(&self, user_id: UserId, osu_id: u32) {
+        let lock = self.sender.lock().await;
+
+        lock.as_ref()
+            .map(|s| s.send(VerificationCommand::Link((user_id, osu_id))));
+    }
+
+    pub async fn unverify(&self, user_id: UserId, osu_id: u32) {
+        let lock = self.sender.lock().await;
+
+        lock.as_ref()
+            .map(|s| s.send(VerificationCommand::Unlink((user_id, osu_id))));
+    }
+
     /// Sets the sender to the provided `UnboundedSender`.
     pub async fn set(&self, tx: UnboundedSender<VerificationCommand>) {
         *self.sender.lock().await = Some(tx);
@@ -196,7 +210,7 @@ pub async fn task(
             }
             else => {
                 if delay_queue.is_empty()
-                    && empty_fill_instant.elapsed() > Duration::from_secs(60) {
+                    && empty_fill_instant.elapsed() > Duration::from_secs(30) {
                         let Ok(users) = sqlx::query!(
                             r#"
                             SELECT user_id, osu_id, last_updated
