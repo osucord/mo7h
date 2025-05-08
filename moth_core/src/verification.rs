@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::data::structs::Data;
 use axum::{
@@ -8,6 +12,7 @@ use axum::{
     response::Html,
     routing::get,
 };
+use chrono::{TimeZone, Utc};
 use rosu_v2::{Osu, prelude::GameMode};
 use serenity::{
     all::{CreateMessage, EditMember, GenericChannelId, GuildId, RoleId, UserId},
@@ -134,7 +139,8 @@ pub async fn task(
 ) {
     let data = ctx.data::<Data>();
     let mut delay_queue = DelayQueue::new();
-    let mut keys = HashMap::new(); // UserId -> (Key, OsuId)
+    let mut keys = HashMap::new();
+    let mut empty_fill_instant = std::time::Instant::now();
 
     loop {
         tokio::select! {
@@ -180,15 +186,45 @@ pub async fn task(
                     .all_roles(false);
 
                     if valid {
-                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("✅ <@{u}> verify loop completed for {} (osu ID: {o}",
+                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("✅ <@{u}> verify loop completed for {} (osu ID: {o})",
                         user_name.unwrap())).allowed_mentions(mentions)).await;
                     } else {
                         let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{o})")).allowed_mentions(mentions)).await;
-
-
                     }
 
                 }
+            }
+            else => {
+                if delay_queue.is_empty()
+                    && empty_fill_instant.elapsed() > Duration::from_secs(60) {
+                        let Ok(users) = sqlx::query!(
+                            r#"
+                            SELECT user_id, osu_id, last_updated
+                            FROM verified_users
+                            WHERE is_active = TRUE
+                            ORDER BY last_updated ASC
+                            LIMIT 100
+                            "#
+                        )
+                        .fetch_all(&data.database.db)
+                        .await else {
+                            continue;
+                        };
+
+                        for user in users {
+                            let last_updated_time = Utc.timestamp_opt(user.last_updated, 0);
+                            let target_time = last_updated_time.latest().unwrap() + chrono::Duration::days(1);
+
+                            let now = Utc::now();
+                            let duration = target_time.signed_duration_since(now);
+                            let seconds = duration.num_seconds();
+
+                            let key = delay_queue.insert((user.user_id as u64).into(), Duration::from_secs(seconds.try_into().unwrap_or(0)));
+                            keys.insert((user.user_id as u64).into(), (key, user.osu_id as u32));
+                        }
+
+                        empty_fill_instant = Instant::now();
+                    }
             }
 
             // need a case for when the delayqueue is empty, just like... fetch 10 users?
@@ -197,7 +233,7 @@ pub async fn task(
 }
 
 const GUILD_ID: GuildId = GuildId::new(98226572468690944);
-const LOG_CHANNEL: GenericChannelId = GenericChannelId::new(776522946872344586);
+pub const LOG_CHANNEL: GenericChannelId = GenericChannelId::new(776522946872344586);
 
 struct RoleRange {
     min_rank: u32,

@@ -4,6 +4,7 @@ use lumi::CreateReply;
 
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
 use moth_core::verification::update_roles;
+use serenity::all::CreateMessage;
 
 #[lumi::command(slash_command, hide_in_help, guild_only)]
 pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
@@ -43,6 +44,25 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                 "User has verified their osu account.",
             )
             .await;
+
+            let mentions = serenity::all::CreateAllowedMentions::new()
+                .all_users(false)
+                .everyone(false)
+                .all_roles(false);
+
+            let _ = moth_core::verification::LOG_CHANNEL
+                .send_message(
+                    &ctx.serenity_context().http,
+                    CreateMessage::new()
+                        .content(format!(
+                            "✅ <@{}> has verified as {} (osu ID: {})",
+                            ctx.author().id,
+                            profile.username,
+                            profile.user_id
+                        ))
+                        .allowed_mentions(mentions),
+                )
+                .await;
         }
         Err(_) => {
             handle
