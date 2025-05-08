@@ -76,21 +76,21 @@ pub(crate) async fn role_update(
         if let (Some(old_col), Some(new_col)) = (old, new) {
             write!(
                 string,
-                "\ncolour: #{old_col}{}{RESET} -> #{new_col}{}{RESET}",
+                "\ncolour: #{old_col}{:06X}{RESET} -> #{new_col}{:06X}{RESET}",
                 old_role.colour.0, role.colour.0
             )
             .unwrap();
         } else if let Some(new_col) = new {
             write!(
                 string,
-                "\ncolour: None -> #{new_col}{}{RESET}",
+                "\ncolour: None -> #{new_col}{:06X}{RESET}",
                 role.colour.0
             )
             .unwrap();
         } else if let Some(old_col) = old {
             write!(
                 string,
-                "\ncolour: #{old_col}{}{RESET} -> None",
+                "\ncolour: #{old_col}{:06X}{RESET} -> None",
                 old_role.colour.0
             )
             .unwrap();
