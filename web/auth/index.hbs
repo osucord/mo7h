@@ -15,12 +15,20 @@
 
         body {
             height: 100vh;
+            margin: 0;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-
             background-color: #0d0b0b;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .content {
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
         }
 
         .icon-container {
@@ -65,15 +73,17 @@
 </head>
 
 <body id="{{#if success}}success{{else}}error{{/if}}">
+    <div class="content">
+        <div class="icon-container">
+            <img src="https://i.mothoxi.de/LB57HC64.png" alt="Moth" class="icon">
+        </div>
+        <p class="success-enable text">Authentication successful!</p>
+        <p class="success-enable info">Welcome {{user}}!</p>
+        <p class="error-enable text">Authentication failed</p>
+        <p class="error-enable info">Failed to complete authorization.</p>
     </div>
-    <div class="icon-container">
-        <img src="https://i.mothoxi.de/LB57HC64.png" alt="Moth" class="icon">
-    </div>
-    <p class="success-enable text">Authentication successful!</p>
-    <p class="success-enable info">Welcome {{user}}!</p>
-    <p class="error-enable text">Authentication failed</p>
-    <p class="error-enable info">Failed to complete authorization.</p>
     <div class="noise"></div>
 </body>
+
 
 </html>
