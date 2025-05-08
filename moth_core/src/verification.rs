@@ -183,7 +183,7 @@ pub async fn task(
                     };
 
 
-                    let (valid, user_name) = match osu.user(o).mode(gamemode).await {
+                    let (valid, _) = match osu.user(o).mode(gamemode).await {
                         Ok(osu_user) => {
                             let rank = osu_user.statistics.expect("always sent").global_rank;
                             let success = maybe_update(&ctx, u, gamemode, rank).await;
@@ -201,11 +201,13 @@ pub async fn task(
                     .all_roles(false);
 
                     if valid {
-                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("✅ <@{u}> verify loop completed for {} (osu ID: {o})",
-                        user_name.unwrap())).allowed_mentions(mentions)).await;
+                        // 1 day
+                        let time = Utc::now().timestamp() + 86400;
+                        let _ = data.database.update_last_updated(u, time).await;
                     } else {
                         let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{o})")).allowed_mentions(mentions)).await;
                         let _ = data.database.inactive_user(u).await;
+                        // i should figure out if its a member failure or a restricted failure.
                     }
 
                 }
@@ -344,14 +346,14 @@ pub async fn update_roles(
 
     let mut roles = member.roles.to_vec();
 
-    let all_ranges = OSU_RANGES
+    let mut all_ranges = OSU_RANGES
         .iter()
         .chain(MANIA_RANGES)
         .chain(TAIKO_RANGES)
         .chain(CTB_RANGES);
 
     // remove existing rank roles from the users roles.
-    roles.retain(|role_id| !all_ranges.clone().any(|range| *role_id == range.role_id));
+    roles.retain(|role_id| !all_ranges.any(|range| *role_id == range.role_id));
 
     // Conditionally add the new role (only for update, not remove)
     if let (Some(gamemode), Some(rank)) = (gamemode, rank) {
