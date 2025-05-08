@@ -13,20 +13,6 @@ async fn handle_command_error(ctx: Context<'_>, error: Error) {
     println!("Error in command `{}`: {:?}", ctx.command().name, error);
 }
 
-async fn handle_not_owner_error(ctx: Context<'_>) {
-    let owner_bypass = {
-        let data = ctx.data();
-        let checks = data.database.inner_overwrites();
-        checks.owners_all.contains(&ctx.author().id)
-    };
-    let msg = if owner_bypass {
-        "You may have access to most owner commands, but not this one <3"
-    } else {
-        "Only bot owners can call this command"
-    };
-    let _ = ctx.say(msg).await;
-}
-
 async fn handle_command_check_failed(ctx: Context<'_>, error: Option<Error>) {
     async fn text_response(ctx: Context<'_>, error: Option<Error>) {
         let mut embed = serenity::CreateEmbed::new()
@@ -106,7 +92,7 @@ async fn handle_argument_parse_error(ctx: Context<'_>, input: Option<String>, er
 pub async fn handler(error: lumi::FrameworkError<'_, Data, Error>) {
     match error {
         lumi::FrameworkError::Command { error, ctx, .. } => handle_command_error(ctx, error).await,
-        lumi::FrameworkError::NotAnOwner { ctx, .. } => handle_not_owner_error(ctx).await,
+        lumi::FrameworkError::NotAnOwner { .. } | lumi::FrameworkError::UnknownCommand { .. } => {}
         lumi::FrameworkError::CommandCheckFailed { error, ctx, .. } => {
             handle_command_check_failed(ctx, error).await;
         }
@@ -120,7 +106,6 @@ pub async fn handler(error: lumi::FrameworkError<'_, Data, Error>) {
         } => {
             let _ = handle_cooldown(remaining_cooldown, ctx).await;
         }
-        lumi::FrameworkError::UnknownCommand { .. } => {}
         error => {
             if let Err(e) = lumi::builtins::on_error(error).await {
                 println!("Error while handling error: {e}");

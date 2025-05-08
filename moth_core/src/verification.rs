@@ -155,6 +155,7 @@ pub async fn task(
     let mut delay_queue = DelayQueue::new();
     let mut keys = HashMap::new();
     let mut empty_fill_instant = std::time::Instant::now();
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
 
     loop {
         tokio::select! {
@@ -182,9 +183,9 @@ pub async fn task(
                     };
 
 
-                    let (valid, user_name) = match osu.user(o).mode(GameMode::Osu).await {
+                    let (valid, user_name) = match osu.user(o).mode(gamemode).await {
                         Ok(osu_user) => {
-                            let rank = osu_user.statistics.expect("always sent").global_rank.expect("always sent");
+                            let rank = osu_user.statistics.expect("always sent").global_rank;
                             let success = maybe_update(&ctx, u, gamemode, rank).await;
                             (success, Some(osu_user.username))
 
@@ -204,44 +205,45 @@ pub async fn task(
                         user_name.unwrap())).allowed_mentions(mentions)).await;
                     } else {
                         let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{o})")).allowed_mentions(mentions)).await;
+                        let _ = data.database.inactive_user(u).await;
                     }
 
                 }
-            }
-            else => {
-                if delay_queue.is_empty()
-                    && empty_fill_instant.elapsed() > Duration::from_secs(30) {
-                        let Ok(users) = sqlx::query!(
-                            r#"
+            },
+            _ = interval.tick() => {
+                if delay_queue.is_empty() && empty_fill_instant.elapsed() > Duration::from_secs(30) {
+                    let Ok(users) = sqlx::query!(
+                        r#"
                             SELECT user_id, osu_id, last_updated
                             FROM verified_users
                             WHERE is_active = TRUE
                             ORDER BY last_updated ASC
                             LIMIT 100
-                            "#
-                        )
-                        .fetch_all(&data.database.db)
-                        .await else {
-                            continue;
-                        };
+                        "#
+                    )
+                    .fetch_all(&data.database.db)
+                    .await else {
+                        return;
+                    };
 
-                        for user in users {
-                            let last_updated_time = Utc.timestamp_opt(user.last_updated, 0);
-                            let target_time = last_updated_time.latest().unwrap() + chrono::Duration::days(1);
+                    for user in users {
+                        let last_updated_time = Utc.timestamp_opt(user.last_updated, 0);
+                        let target_time = last_updated_time.latest().unwrap() + chrono::Duration::days(1);
 
-                            let now = Utc::now();
-                            let duration = target_time.signed_duration_since(now);
-                            let seconds = duration.num_seconds();
+                        let now = Utc::now();
+                        let duration = target_time.signed_duration_since(now);
+                        let seconds = duration.num_seconds();
 
-                            let key = delay_queue.insert((user.user_id as u64).into(), Duration::from_secs(seconds.try_into().unwrap_or(0)));
-                            keys.insert((user.user_id as u64).into(), (key, user.osu_id as u32));
-                        }
-
-                        empty_fill_instant = Instant::now();
+                        let key = delay_queue.insert(
+                            (user.user_id as u64).into(),
+                            Duration::from_secs(seconds.try_into().unwrap_or(0)),
+                        );
+                        keys.insert((user.user_id as u64).into(), (key, user.osu_id as u32));
                     }
-            }
 
-            // need a case for when the delayqueue is empty, just like... fetch 10 users?
+                    empty_fill_instant = Instant::now();
+                }
+            }
         }
     }
 }
@@ -375,13 +377,13 @@ async fn maybe_update(
     ctx: &serenity::all::Context,
     user_id: UserId,
     gamemode: GameMode,
-    rank: u32,
+    rank: Option<u32>,
 ) -> bool {
     update_roles(
         ctx,
         user_id,
         Some(gamemode),
-        Some(rank),
+        rank,
         "Roles adjusted due to osu! rank update.",
     )
     .await
