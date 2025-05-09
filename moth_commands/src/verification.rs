@@ -242,9 +242,11 @@ pub async fn osu(
             "**Level** {} | **Global Rank** {} | **:flag_{}: Rank** {}\n\n**PP** {} | \
              **Accuracy** {:.2} | **Play Count** {}",
             stats.level.current,
+            // TODO: don't
             stats.global_rank.unwrap_or(0),
             user.country_code.to_lowercase(),
-            stats.country_rank.unwrap(),
+            // DITTO
+            stats.country_rank.unwrap_or(0),
             stats.pp.round(),
             stats.accuracy,
             stats.playcount
