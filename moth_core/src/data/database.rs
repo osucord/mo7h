@@ -894,7 +894,8 @@ impl Database {
             ON CONFLICT (user_id)
             DO UPDATE SET
                 last_updated = EXCLUDED.last_updated,
-                is_active = EXCLUDED.is_active
+                is_active = EXCLUDED.is_active,
+                gamemode = 0
             "#,
             user_id.get() as i64,
             osu_id as i32,

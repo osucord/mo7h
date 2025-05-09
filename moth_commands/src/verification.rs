@@ -9,6 +9,7 @@ use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
 
 // TODO: osu guild only
 
+/// Verify your account with this bot to gain rank roles.
 #[lumi::command(slash_command, guild_only)]
 pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
     let fut = ctx.data().web.auth_standby.wait_for_osu();
@@ -28,7 +29,11 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                         CreateEmbed::new()
                             .title(profile.username.as_str())
                             .thumbnail(profile.avatar_url)
-                            .description("FUCK OFF I DON'T WANT A DESCRIPTION RIGHT NOW"),
+                            .description(
+                                "Thanks for verifying! You have automatically been assigned a \
+                                 role based off your current osu!std rank. If you would like to \
+                                 choose another gamemode, run the mode command.",
+                            ),
                     ),
                 )
                 .await?;
@@ -39,10 +44,11 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                 .verify_user(ctx.author().id, profile.user_id)
                 .await?;
 
+            // eventually i will check if they are already verified.
             ctx.data()
                 .web
                 .task_sender
-                .verify(ctx.author().id, profile.user_id)
+                .verify(ctx.author().id, profile.user_id, GameMode::Osu)
                 .await;
 
             update_roles(
@@ -86,6 +92,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Update your rank role automatically! Happens automatically daily.
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
     let Some((osu_id, gamemode)) = ctx.data().database.get_osu_user_id(ctx.author().id).await
@@ -128,6 +135,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Unlink your account from this server.
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
     let osu_id = ctx.data().database.unlink_user(ctx.author().id).await?;
@@ -171,6 +179,7 @@ pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
 
 #[derive(Debug, lumi::ChoiceParameter)]
 enum GameModeChoice {
+    #[name = "Standard"]
     Osu,
     Mania,
     Taiko,
@@ -188,6 +197,7 @@ impl From<GameModeChoice> for GameMode {
     }
 }
 
+/// View an osu profile!
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn osu(
     ctx: Context<'_>,
@@ -246,6 +256,7 @@ pub async fn osu(
     Ok(())
 }
 
+/// Change your default gamemode and role in the server.
 #[lumi::command(aliases("mode"), slash_command, prefix_command, guild_only)]
 pub async fn gamemode(ctx: Context<'_>, gamemode: GameModeChoice) -> Result<(), Error> {
     if ctx
@@ -259,17 +270,46 @@ pub async fn gamemode(ctx: Context<'_>, gamemode: GameModeChoice) -> Result<(), 
         return Ok(());
     }
 
+    let gamemode: GameMode = gamemode.into();
+
     ctx.data()
         .database
-        .change_mode(ctx.author().id, gamemode.into())
+        .change_mode(ctx.author().id, gamemode)
         .await?;
+
+    ctx.data()
+        .web
+        .task_sender
+        .gamemode_change(ctx.author().id, gamemode)
+        .await;
 
     ctx.say("Successfully changed mode.").await?;
 
     Ok(())
 }
 
+#[lumi::command(slash_command, prefix_command, guild_only)]
+pub async fn osuhelp(ctx: Context<'_>) -> Result<(), Error> {
+    // TODO: inner command handler to get the commands on register/startup to prevent hardcoding.
+
+    let embed = CreateEmbed::new()
+        .title("osu! commands")
+        .description(
+            "</verify:1369818139793162369>: verify your account with the bot to gain rank roles \
+             automatically.\n</update:1370135070110912604>: Update your rank role manually \
+             (automatically triggers daily)\n</gamemode:1370135070110912606>: Change the gamemode \
+             your role is for.\n</unlink:1370135070110912607>: Removes your data from the bot. \
+             Sad to see you go!\n</osu:1370135070110912608>: shows your profile for the specified \
+             user and gamemode.",
+        )
+        .colour(Colour::FADED_PURPLE);
+
+    ctx.send(CreateReply::new().embed(embed)).await?;
+
+    Ok(())
+}
+
 #[must_use]
-pub fn commands() -> [crate::Command; 5] {
-    [verify(), update(), gamemode(), unlink(), osu()]
+pub fn commands() -> [crate::Command; 6] {
+    [verify(), update(), gamemode(), unlink(), osu(), osuhelp()]
 }

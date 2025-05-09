@@ -19,7 +19,7 @@ use serenity::{
     futures::StreamExt,
 };
 use tokio::sync::mpsc::{self, UnboundedSender};
-use tokio_util::time::DelayQueue;
+use tokio_util::time::{DelayQueue, delay_queue::Key};
 use tower_http::cors::CorsLayer;
 
 #[derive(serde::Deserialize)]
@@ -114,11 +114,11 @@ impl VerificationSender {
         lock.as_ref().map(|s| s.send(VerificationCommand::Shutdown));
     }
 
-    pub async fn verify(&self, user_id: UserId, osu_id: u32) {
+    pub async fn verify(&self, user_id: UserId, osu_id: u32, gamemode: GameMode) {
         let lock = self.sender.lock().await;
 
         lock.as_ref()
-            .map(|s| s.send(VerificationCommand::Link((user_id, osu_id))));
+            .map(|s| s.send(VerificationCommand::Link((user_id, osu_id, gamemode))));
     }
 
     pub async fn unverify(&self, user_id: UserId, osu_id: u32) {
@@ -126,6 +126,13 @@ impl VerificationSender {
 
         lock.as_ref()
             .map(|s| s.send(VerificationCommand::Unlink((user_id, osu_id))));
+    }
+
+    pub async fn gamemode_change(&self, user_id: UserId, gamemode: GameMode) {
+        let lock = self.sender.lock().await;
+
+        lock.as_ref()
+            .map(|s| s.send(VerificationCommand::GameModeChange(user_id, gamemode)));
     }
 
     /// Sets the sender to the provided `UnboundedSender`.
@@ -142,11 +149,22 @@ impl VerificationSender {
 }
 
 pub enum VerificationCommand {
-    Link((serenity::all::UserId, u32)),
+    Link((serenity::all::UserId, u32, GameMode)),
     Unlink((serenity::all::UserId, u32)),
+    // changes gamemode, assigns new metadata and recalcs.
+    GameModeChange(serenity::all::UserId, GameMode),
     Shutdown,
 }
 
+pub struct Metadata {
+    key: Key,
+    osu_id: u32,
+    gamemode: GameMode,
+    rank: Option<u32>,
+    initial_verification: bool,
+}
+
+#[expect(clippy::too_many_lines)]
 pub async fn task(
     ctx: serenity::all::Context,
     mut rx: mpsc::UnboundedReceiver<VerificationCommand>,
@@ -161,37 +179,53 @@ pub async fn task(
         tokio::select! {
             Some(cmd) = rx.recv() => {
                 match cmd {
-                    VerificationCommand::Link((u, o)) => {
+                    VerificationCommand::Link((u, o, mode)) => {
                         let key = delay_queue.insert(u, Duration::from_secs(86400));
-                        keys.insert(u, (key, o));
+                        keys.insert(u, Metadata {
+                            key,
+                            osu_id: o,
+                            gamemode: mode,
+                            rank: None,
+                            initial_verification: true,
+                        });
                     },
                     VerificationCommand::Unlink((u, _)) => {
-                        if let Some((key, _)) = keys.remove(&u) {
-                            delay_queue.remove(&key);
+                        if let Some(metadata) = keys.remove(&u) {
+                            delay_queue.remove(&metadata.key);
                         }
                     },
+                    VerificationCommand::GameModeChange(u, mode) => {
+                        if let Some(metadata) = keys.get_mut(&u) {
+                            metadata.initial_verification = true;
+                            metadata.gamemode = mode;
+                            metadata.rank = None;
+                            delay_queue.reset_at(&metadata.key, tokio::time::Instant::now());
+                        }
+
+                    }
                     VerificationCommand::Shutdown => break,
                 }
             },
             Some(expired) = delay_queue.next() => {
                 let u = expired.into_inner();
-                if let Some((_, o)) = keys.remove(&u) {
+                if let Some(metadata) = keys.remove(&u) {
                     let osu = &data.web.osu;
-                    let Ok(gamemode) = data.database.get_gamemode(u, o).await else {
-                        println!("checking user that is not in the database, delayqueue is outdated.");
-                        continue;
-                    };
-
-
-                    let (valid, _) = match osu.user(o).mode(gamemode).await {
+                    let valid = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
                         Ok(osu_user) => {
                             let rank = osu_user.statistics.expect("always sent").global_rank;
-                            let success = maybe_update(&ctx, u, gamemode, rank).await;
-                            (success, Some(osu_user.username))
 
+                            // do not update rank if its not a new role.
+                            // but always if its "initial" or a gamemode switch.
+                            if metadata.initial_verification
+                                || get_role_id_for_rank_opt(metadata.gamemode, metadata.rank) != get_role_id_for_rank_opt(metadata.gamemode, rank)
+                            {
+                                maybe_update(&ctx, u, metadata.gamemode, rank).await
+                            } else {
+                                true
+                            }
                         }
                         Err(_) => {
-                            (false, None)
+                            false
                         }
                     };
 
@@ -205,7 +239,7 @@ pub async fn task(
                         let time = Utc::now().timestamp() + 86400;
                         let _ = data.database.update_last_updated(u, time).await;
                     } else {
-                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{o})")).allowed_mentions(mentions)).await;
+                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await;
                         let _ = data.database.inactive_user(u).await;
                         // i should figure out if its a member failure or a restricted failure.
                     }
@@ -216,7 +250,7 @@ pub async fn task(
                 if delay_queue.is_empty() && empty_fill_instant.elapsed() > Duration::from_secs(30) {
                     let Ok(users) = sqlx::query!(
                         r#"
-                            SELECT user_id, osu_id, last_updated
+                            SELECT user_id, osu_id, last_updated, rank, gamemode
                             FROM verified_users
                             WHERE is_active = TRUE
                             ORDER BY last_updated ASC
@@ -240,7 +274,13 @@ pub async fn task(
                             (user.user_id as u64).into(),
                             Duration::from_secs(seconds.try_into().unwrap_or(0)),
                         );
-                        keys.insert((user.user_id as u64).into(), (key, user.osu_id as u32));
+                        keys.insert((user.user_id as u64).into(), Metadata {
+                            key,
+                            osu_id: user.osu_id as u32,
+                            gamemode: (user.gamemode as u8).into(),
+                            rank: user.rank.map(|r| r as u32),
+                            initial_verification: false,
+                        });
                     }
 
                     empty_fill_instant = Instant::now();
@@ -322,6 +362,10 @@ fn get_role_id_for_rank(game_mode: GameMode, rank: u32) -> RoleId {
         GameMode::Taiko => find_role_for_rank(TAIKO_RANGES, rank),
         GameMode::Catch => find_role_for_rank(CTB_RANGES, rank),
     }
+}
+
+fn get_role_id_for_rank_opt(game_mode: GameMode, rank: Option<u32>) -> Option<RoleId> {
+    Some(get_role_id_for_rank(game_mode, rank?))
 }
 
 fn find_role_for_rank(ranges: &[RoleRange], rank: u32) -> RoleId {
