@@ -935,7 +935,7 @@ impl Database {
     pub async fn change_mode(&self, user_id: UserId, gamemode: GameMode) -> Result<(), Error> {
         query!(
             "UPDATE verified_users SET gamemode = $1 WHERE user_id = $2",
-            gamemode as i8,
+            gamemode as i16,
             user_id.get() as i64
         )
         .execute(&self.db)

@@ -12,6 +12,12 @@ use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
 /// Verify your account with this bot to gain rank roles.
 #[lumi::command(slash_command, guild_only)]
 pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
+    if let lumi::Context::Prefix(_) = ctx {
+        ctx.say("Use </verify:1369818139793162369> to verify with me and gain a rank role!")
+            .await?;
+        return Ok(());
+    }
+
     let fut = ctx.data().web.auth_standby.wait_for_osu();
 
     let embed = CreateEmbed::new().title("osu! verification").description(format!("<:moth:1369814651193397338> [click here](https://osu.ppy.sh/oauth/authorize?client_id={}&response_type=code&scope=identify&redirect_uri=https://verify.osucord.moe&state={}) to verify your osu! profile!", ctx.data().web.osu_client_id, fut.state)).footer(CreateEmbedFooter::new("contact Moxy if you have any issues with verification")).colour(Colour::DARK_TEAL);
@@ -120,6 +126,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
         .everyone(false)
         .all_roles(false);
 
+    // TODO: set it in delayqueue - or remove because like... 1 day ?
     let _ = moth_core::verification::LOG_CHANNEL
         .send_message(
             &ctx.serenity_context().http,
