@@ -210,7 +210,7 @@ pub async fn task(
                 let u = expired.into_inner();
                 if let Some(metadata) = keys.remove(&u) {
                     let osu = &data.web.osu;
-                    let valid = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
+                    let (valid, rank) = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
                         Ok(osu_user) => {
                             let rank = osu_user.statistics.expect("always sent").global_rank;
 
@@ -219,13 +219,13 @@ pub async fn task(
                             if metadata.initial_verification
                                 || get_role_id_for_rank_opt(metadata.gamemode, metadata.rank) != get_role_id_for_rank_opt(metadata.gamemode, rank)
                             {
-                                maybe_update(&ctx, u, metadata.gamemode, rank).await
+                                (maybe_update(&ctx, u, metadata.gamemode, rank).await, Some(rank))
                             } else {
-                                true
+                                (true, Some(rank))
                             }
                         }
                         Err(_) => {
-                            false
+                            (false, None)
                         }
                     };
 
@@ -237,7 +237,7 @@ pub async fn task(
                     if valid {
                         // 1 day
                         let time = Utc::now().timestamp() + 86400;
-                        let _ = data.database.update_last_updated(u, time).await;
+                        let _ = data.database.update_last_updated(u, time, rank).await;
                     } else {
                         let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await;
                         let _ = data.database.inactive_user(u).await;

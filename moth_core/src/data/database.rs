@@ -871,15 +871,32 @@ impl Database {
         .map(|_| ())?)
     }
 
-    pub async fn update_last_updated(&self, user_id: UserId, time: i64) -> Result<(), Error> {
-        Ok(query!(
-            "UPDATE verified_users SET last_updated = $2 WHERE user_id = $1",
-            user_id.get() as i64,
-            time
-        )
-        .execute(&self.db)
-        .await
-        .map(|_| ())?)
+    pub async fn update_last_updated(
+        &self,
+        user_id: UserId,
+        time: i64,
+        rank: Option<Option<u32>>,
+    ) -> Result<(), Error> {
+        if let Some(rank) = rank {
+            query!(
+                "UPDATE verified_users SET last_updated = $2, rank = $3 WHERE user_id = $1",
+                user_id.get() as i64,
+                time,
+                rank.map(|r| r as i32)
+            )
+            .execute(&self.db)
+            .await?;
+        } else {
+            query!(
+                "UPDATE verified_users SET last_updated = $2 WHERE user_id = $1",
+                user_id.get() as i64,
+                time
+            )
+            .execute(&self.db)
+            .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn verify_user(&self, user_id: UserId, osu_id: u32) -> Result<(), Error> {
