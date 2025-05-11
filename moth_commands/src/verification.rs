@@ -5,7 +5,7 @@ use lumi::CreateReply;
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
 use moth_core::verification::update_roles;
 use rosu_v2::model::GameMode;
-use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
+use serenity::all::{CreateEmbedAuthor, CreateMessage};
 
 // TODO: osu guild only
 
@@ -212,12 +212,14 @@ impl From<GameModeChoice> for GameMode {
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn osu(
     ctx: Context<'_>,
-    user: Option<UserId>,
+    // i wanted to use id, but idk what the fuck is going on with argument parsing behind the scenes that i have to use a full user and lazy?
+    #[lazy] user: Option<serenity::all::User>,
     gamemode: Option<GameModeChoice>,
 ) -> Result<(), Error> {
     let user = match ctx {
-        lumi::Context::Application(_) => user.unwrap_or(ctx.author().id),
+        lumi::Context::Application(_) => user.map_or(ctx.author().id, |u| u.id),
         lumi::Context::Prefix(prefix_context) => user
+            .map(|u| u.id)
             .or_else(|| {
                 prefix_context
                     .msg
