@@ -13,9 +13,15 @@ use axum::{
     routing::get,
 };
 use chrono::{TimeZone, Utc};
-use rosu_v2::{Osu, prelude::GameMode};
+use rosu_v2::{
+    Osu,
+    prelude::{GameMode, RankStatus, UserExtended},
+};
 use serenity::{
-    all::{CreateMessage, EditMember, GenericChannelId, GuildId, RoleId, UserId},
+    all::{
+        CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
+        RoleId, UserId,
+    },
     futures::StreamExt,
 };
 use tokio::sync::mpsc::{self, UnboundedSender};
@@ -234,14 +240,13 @@ pub async fn task(
                     let osu = &data.web.osu;
                     let (valid, rank) = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
                         Ok(osu_user) => {
-                            let rank = osu_user.statistics.expect("always sent").global_rank;
-
+                            let rank = osu_user.statistics.as_ref().expect("always sent").global_rank;
                             // do not update rank if its not a new role.
                             // but always if its "initial" or a gamemode switch.
                             if metadata.initial_verification
                                 || get_role_id_for_rank_opt(metadata.gamemode, metadata.rank) != get_role_id_for_rank_opt(metadata.gamemode, rank)
                             {
-                                (maybe_update(&ctx, u, metadata.gamemode, rank).await, Some(rank))
+                                (maybe_update(&ctx, u, Some(&osu_user)).await, Some(rank))
                             } else {
                                 (true, Some(rank))
                             }
@@ -402,13 +407,91 @@ fn find_role_for_rank(ranges: &[RoleRange], rank: u32) -> RoleId {
         .expect("All ranges have a u32::MAX")
 }
 
+const SPECIAL_MAPPING: &[(u32, RoleId)] = &[
+    // GMT
+    (4, RoleId::new(974674488803340338)),
+    // PROJECT LOVED
+    (31, RoleId::new(969880026084429824)),
+    // FEATURED ARTIST
+    (35, RoleId::new(901768871038570546)),
+    // NOMINATION ASSESSMENT TEAM
+    (7, RoleId::new(1069665975630315611)),
+    // BEATMAP SPOTLIGHT CURATOR
+    (48, RoleId::new(1089591328985329716)),
+    // BEATMAP NOMINATOR
+    (28, RoleId::new(901772287445987348)),
+    // ALM is 16, but not yet supported as not needed.
+];
+
+#[expect(clippy::type_complexity)]
+const ALL_MAPPER_ROLES: &[(fn(&UserMapHolder) -> bool, RoleId)] = &[
+    // Ranked roles
+    (|u| u.ranked_std(), RoleId::new(1041039012179222660)),
+    (|u| u.ranked_mania(), RoleId::new(1041036116482080811)),
+    (|u| u.ranked_taiko(), RoleId::new(1041036580770562149)),
+    (|u| u.ranked_catch(), RoleId::new(1041036816909881404)),
+    // Loved roles
+    (|u| u.loved_std(), RoleId::new(1056525314303475752)),
+    (|u| u.loved_mania(), RoleId::new(1120351610107858985)),
+    (|u| u.loved_taiko(), RoleId::new(1120351662075289641)),
+    (|u| u.loved_catch(), RoleId::new(1120351771634712646)),
+];
+
+#[bool_to_bitflags::bool_to_bitflags]
+#[derive(Default)]
+struct UserMapHolder {
+    ranked_std: bool,
+    ranked_mania: bool,
+    ranked_taiko: bool,
+    ranked_catch: bool,
+    loved_std: bool,
+    loved_mania: bool,
+    loved_taiko: bool,
+    loved_catch: bool,
+}
+
+impl UserMapHolder {
+    /// Returns the set of **all possible** mapper roles this struct knows about
+    pub fn all_roles() -> impl Iterator<Item = RoleId> {
+        ALL_MAPPER_ROLES.iter().map(|(_, role)| *role)
+    }
+
+    /// Returns the set of roles this user **should** have based on the flags
+    pub fn active_roles(&self) -> impl Iterator<Item = RoleId> + '_ {
+        ALL_MAPPER_ROLES
+            .iter()
+            .filter_map(move |(check, role)| if check(self) { Some(*role) } else { None })
+    }
+}
+
 pub async fn update_roles(
     ctx: &serenity::all::Context,
     user_id: UserId,
-    gamemode: Option<GameMode>,
-    rank: Option<u32>,
+    user: Option<&UserExtended>,
     reason: &str,
 ) -> bool {
+    // unlink -> remove everything.
+    let Some(user) = user else {
+        kill_roles(ctx, user_id).await;
+        return true;
+    };
+
+    let groups = user.groups.as_deref().expect("always sent");
+
+    // we do the osu map checking up here instead of below to minimise the amount of time we are using "outdated" roles.
+    // if we wait too long the chances of say, chirou muting them or a mute expiring increases.
+    // if we do it here we will only wait a couple micros at most.
+    let mut holder = UserMapHolder::default();
+    if user.ranked_mapset_count.expect("always sent") > 0 {
+        handle_maps(ctx, user.user_id, MapType::Ranked, &mut holder).await;
+    }
+    if user.loved_mapset_count.expect("always sent") > 0 {
+        handle_maps(ctx, user.user_id, MapType::Loved, &mut holder).await;
+    }
+    /*     if user.guest_mapset_count.expect("always sent") > 0 {
+        handle_maps(ctx, user.user_id, MapType::GuestEither, &mut holder).await;
+    } */
+
     let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
         println!("could not fetch member, failing...");
         return false;
@@ -424,11 +507,33 @@ pub async fn update_roles(
             .any(|range| *role_id == range.role_id)
     });
 
-    // Conditionally add the new role (only for update, not remove)
-    if let (Some(gamemode), Some(rank)) = (gamemode, rank) {
-        println!("gamemode: {gamemode}");
+    roles.retain(|role_id| {
+        // Remove role if it's in ALL_MAPPER_ROLES
+        !UserMapHolder::all_roles().any(|r| r == *role_id)
+    });
 
-        roles.push(dbg!(get_role_id_for_rank(gamemode, rank)));
+    // assign the special roles they should have.
+    let mut new_special = Vec::new();
+    for group in groups {
+        if let Some((_, role_id)) = SPECIAL_MAPPING.iter().find(|g| g.0 == group.id).copied() {
+            // we use this to notify if we assigned a new special role.
+            if !member.roles.contains(&role_id) {
+                new_special.push(role_id);
+            }
+            roles.push(role_id);
+        }
+    }
+
+    for active_role in holder.active_roles() {
+        if !member.roles.contains(&active_role) {
+            new_special.push(active_role);
+        }
+        roles.push(active_role);
+    }
+
+    // Conditionally add the new role (only for update, not remove)
+    if let Some(rank) = user.statistics.as_ref().expect("always sent").global_rank {
+        roles.push(dbg!(get_role_id_for_rank(user.mode, rank)));
     }
 
     if *roles == *member.roles {
@@ -448,27 +553,123 @@ pub async fn update_roles(
         return false;
     }
 
+    let embed = CreateEmbed::new()
+        .author(
+            CreateEmbedAuthor::new(user.username.as_str())
+                .url(format!("https://osu.ppy.sh/u/{}", user.user_id)),
+        )
+        .description("Assigned one or more roles to this user that may be considered special.")
+        .field("Discord user", format!("<@{user_id}>"), true)
+        .thumbnail(&user.avatar_url);
+
+    for role in new_special {
+        let embed = embed.clone().field("Role", format!("<@&{role}>"), true);
+
+        let _ = LOG_CHANNEL
+            .send_message(
+                &ctx.http,
+                CreateMessage::new()
+                    .content("<@101090238067113984> <@291089948709486593> <@158567567487795200>")
+                    .embed(embed),
+            )
+            .await;
+    }
+
     true
+}
+
+#[expect(unused)]
+enum MapType {
+    Loved,
+    Ranked,
+    GuestEither,
+}
+
+impl From<MapType> for RankStatus {
+    fn from(val: MapType) -> Self {
+        match val {
+            MapType::Loved => RankStatus::Loved,
+            MapType::Ranked => RankStatus::Ranked,
+            // need to fork
+            MapType::GuestEither => todo!(),
+        }
+    }
+}
+
+async fn handle_maps(
+    ctx: &serenity::all::Context,
+    user_id: u32,
+    map_type: MapType,
+    holder: &mut UserMapHolder,
+) {
+    let osu = &ctx.data::<Data>().web.osu;
+
+    let Ok(mapsets) = osu.user_beatmapsets(user_id).status(map_type.into()).await else {
+        return;
+    };
+
+    for mapset in mapsets {
+        for map in mapset.maps.expect("always sent") {
+            if map.creator_id == user_id {
+                match map.status {
+                    RankStatus::Ranked | RankStatus::Approved => match map.mode {
+                        GameMode::Osu => holder.set_ranked_std(true),
+                        GameMode::Taiko => holder.set_ranked_taiko(true),
+                        GameMode::Catch => holder.set_ranked_catch(true),
+                        GameMode::Mania => holder.set_ranked_mania(true),
+                    },
+                    RankStatus::Loved => match map.mode {
+                        GameMode::Osu => holder.set_loved_std(true),
+                        GameMode::Taiko => holder.set_loved_taiko(true),
+                        GameMode::Catch => holder.set_loved_catch(true),
+                        GameMode::Mania => holder.set_loved_mania(true),
+                    },
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+async fn kill_roles(ctx: &serenity::all::Context, user_id: UserId) {
+    let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
+        return;
+    };
+
+    let mut roles = member.roles.to_vec();
+
+    // remove existing rank roles from the users roles.
+    roles.retain(|role_id| {
+        !ALL_RANGES
+            .iter()
+            .flat_map(|slice| slice.iter())
+            .any(|range| *role_id == range.role_id)
+    });
+
+    roles.retain(|role_id| {
+        // Check if the role is a known special role
+        !SPECIAL_MAPPING.iter().any(|(_, r)| r == role_id)
+    });
 }
 
 async fn maybe_update(
     ctx: &serenity::all::Context,
     user_id: UserId,
-    gamemode: GameMode,
-    rank: Option<u32>,
+    user: Option<&UserExtended>,
 ) -> bool {
-    println!("Maybe updating {user_id} with gamemode {gamemode} and rank {rank:?}");
-
     update_roles(
         ctx,
         user_id,
-        Some(gamemode),
-        rank,
+        user,
         "Roles adjusted due to osu! rank update.",
     )
     .await
 }
 
-pub async fn remove(ctx: &serenity::all::Context, user_id: UserId) -> bool {
-    update_roles(ctx, user_id, None, None, "User has unverified.").await
+pub async fn remove(
+    ctx: &serenity::all::Context,
+    user_id: UserId,
+    user: Option<&UserExtended>,
+) -> bool {
+    update_roles(ctx, user_id, user, "User has unverified.").await
 }

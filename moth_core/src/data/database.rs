@@ -961,6 +961,20 @@ impl Database {
         Ok(())
     }
 
+    pub async fn get_existing_links(&self, osu_id: u32) -> Result<Vec<UserId>, sqlx::Error> {
+        sqlx::query_scalar!(
+            "SELECT user_id FROM verified_users WHERE osu_id = $1",
+            osu_id as i32
+        )
+        .fetch_all(&self.db)
+        .await
+        .map(|u| {
+            u.into_iter()
+                .map(|u| UserId::new(u as u64))
+                .collect::<Vec<UserId>>()
+        })
+    }
+
     // temporary function to give access to the inner command overwrites while i figure something out.
     #[must_use]
     pub fn inner_overwrites(&self) -> &Checks {

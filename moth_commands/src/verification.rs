@@ -3,8 +3,8 @@ use crate::{Context, Error};
 use lumi::CreateReply;
 
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
-use moth_core::verification::update_roles;
-use rosu_v2::model::GameMode;
+use moth_core::verification::{update_roles, LOG_CHANNEL};
+use rosu_v2::{model::GameMode, prelude::UserExtended};
 use serenity::all::{CreateEmbedAuthor, CreateMessage};
 
 // TODO: osu guild only
@@ -34,7 +34,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                     CreateReply::new().embed(
                         CreateEmbed::new()
                             .title(profile.username.as_str())
-                            .thumbnail(profile.avatar_url)
+                            .thumbnail(&profile.avatar_url)
                             .description(
                                 "Thanks for verifying! You have automatically been assigned a \
                                  role based off your current osu!std rank. If you would like to \
@@ -45,27 +45,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                 )
                 .await?;
 
-            // TODO: really should just have one method for this.
-            ctx.data()
-                .database
-                .verify_user(ctx.author().id, profile.user_id)
-                .await?;
-
-            // eventually i will check if they are already verified.
-            ctx.data()
-                .web
-                .task_sender
-                .verify(ctx.author().id, profile.user_id, GameMode::Osu)
-                .await;
-
-            update_roles(
-                ctx.serenity_context(),
-                ctx.author().id,
-                Some(rosu_v2::model::GameMode::Osu),
-                profile.statistics.expect("ALWAYS SENT").global_rank,
-                "User has verified their osu account.",
-            )
-            .await;
+            verify_wrapper(ctx, &profile).await?;
 
             let mentions = serenity::all::CreateAllowedMentions::new()
                 .all_users(false)
@@ -99,6 +79,96 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Error> {
+    // first, we check for existing verifications to this osu accaunt, and remove them.
+    // this is to prevent people giving their friends roles they shouldn't have.
+    let existing = ctx.data().database.get_existing_links(user.user_id).await?;
+
+    for existing_user in existing {
+        if existing_user == ctx.author().id {
+            continue;
+        }
+
+        ctx.data().database.unlink_user(existing_user).await?;
+
+        ctx.data()
+            .web
+            .task_sender
+            .unverify(ctx.author().id, user.user_id)
+            .await;
+
+        update_roles(
+            ctx.serenity_context(),
+            existing_user,
+            None,
+            &format!(
+                "Unlinked because this osu account has been linked to {} (ID:{}>",
+                ctx.author().name,
+                ctx.author().id,
+            ),
+        )
+        .await;
+
+        let mentions = serenity::all::CreateAllowedMentions::new()
+            .all_users(false)
+            .everyone(false)
+            .all_roles(false);
+
+        let _ = LOG_CHANNEL
+            .send_message(
+                ctx.http(),
+                CreateMessage::new()
+                    .content(format!(
+                        "Unlinked <@{existing_user}> from {} (osu ID: {}) because they linked to \
+                         <@{}>",
+                        user.username,
+                        user.user_id,
+                        ctx.author().id,
+                    ))
+                    .allowed_mentions(mentions),
+            )
+            .await;
+    }
+
+    let (already_verified, _) = if let Some((osu_id, gamemode)) =
+        ctx.data().database.get_osu_user_id(ctx.author().id).await
+    {
+        // already on this user, don't need to hit the db or bg task.
+        let already_verified = osu_id == user.user_id;
+
+        (already_verified, Some(gamemode))
+    } else {
+        (false, None)
+    };
+
+    if !already_verified {
+        ctx.data()
+            .database
+            .verify_user(ctx.author().id, user.user_id)
+            .await?;
+
+        ctx.data()
+            .web
+            .task_sender
+            .verify(ctx.author().id, user.user_id, GameMode::Osu)
+            .await;
+
+        update_roles(
+            ctx.serenity_context(),
+            ctx.author().id,
+            Some(user),
+            "User has verified their osu account.",
+        )
+        .await;
+    }
+
+    // i noticed in a refactor that i no longer have access to the right gamemode data (as i'm now passing data as is, instead of from database)
+    // this is fine, but now i'm saying to the user that they are verified in a case that they are already verified in, without changing anything.
+    // maybe i'll refactor to get the right gamemode by fetching the data prior, but right now i'm lazy.
+
+    Ok(())
+}
+
 /// Update your rank role automatically! Happens automatically daily.
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
@@ -118,8 +188,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
     update_roles(
         ctx.serenity_context(),
         ctx.author().id,
-        Some(gamemode),
-        osu_user.statistics.expect("ALWAYS SENT").global_rank,
+        Some(&osu_user),
         "User has requested a rank update.",
     )
     .await;
@@ -159,7 +228,6 @@ pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
     update_roles(
         ctx.serenity_context(),
         ctx.author().id,
-        None,
         None,
         "User has unlinked their account.",
     )

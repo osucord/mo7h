@@ -2036,6 +2036,7 @@ dependencies = [
  "axum",
  "base64",
  "bitflags 2.9.0",
+ "bool_to_bitflags",
  "chrono",
  "dashmap 6.1.0",
  "handlebars",
