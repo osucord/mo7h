@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use aformat::ToArrayString;
-use moth_ansi::MAGENTA;
+use moth_ansi::{MAGENTA, RESET};
 use serenity::all::audit_log::Action;
 use serenity::all::{AffectedRole, AuditLogEntry, Context, GuildId, MemberAction, UserId};
 use small_fixed_array::{FixedArray, FixedString};
@@ -93,12 +93,12 @@ async fn log_role_change(
             if let Some(user_name) = user_name {
                 println!(
                     "{MAGENTA}[{guild_name}] {mod_name} {action} {user_name}'s roles: \
-                     {names_string} {roles_string}"
+                     {names_string} {roles_string}{RESET}"
                 );
             } else {
                 println!(
                     "{MAGENTA}[{guild_name}] {mod_name} {action} their own roles: {names_string} \
-                     {roles_string}"
+                     {roles_string}{RESET}"
                 );
             }
         } else {
@@ -106,12 +106,12 @@ async fn log_role_change(
 
             if let Some(user_name) = user_name {
                 println!(
-                    "{MAGENTA}[{guild_name}] {mod_name} {action}: {} ({}) for {user_name}",
+                    "{MAGENTA}[{guild_name}] {mod_name} {action}: {} ({}) for {user_name}{RESET}",
                     role.name, role.id
                 );
             } else {
                 println!(
-                    "{MAGENTA}[{guild_name}] {mod_name} {action} {} ({}) for themselves",
+                    "{MAGENTA}[{guild_name}] {mod_name} {action} {} ({}) for themselves{RESET}",
                     role.name, role.id
                 );
             }
@@ -137,15 +137,21 @@ async fn kick_prune_ban(
 
     match member_action {
         MemberAction::Kick => {
-            println!("{MAGENTA}[{guild_name}] {target} was kicked by {user}.\nReason: {reason}");
+            println!(
+                "{MAGENTA}[{guild_name}] {target} was kicked by {user}.\nReason: {reason}{RESET}"
+            );
         }
         // TODO: prune support
         MemberAction::Prune => {}
         MemberAction::BanAdd => {
-            println!("{MAGENTA}[{guild_name}] {target} was banned by {user}.\nReason: {reason}");
+            println!(
+                "{MAGENTA}[{guild_name}] {target} was banned by {user}.\nReason: {reason}{RESET}"
+            );
         }
         MemberAction::BanRemove => {
-            println!("{MAGENTA}[{guild_name}] {target} was unbanned by {user}.\nReason: {reason}");
+            println!(
+                "{MAGENTA}[{guild_name}] {target} was unbanned by {user}.\nReason: {reason}{RESET}"
+            );
         }
         _ => unreachable!(),
     }
