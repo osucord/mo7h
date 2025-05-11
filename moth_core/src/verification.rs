@@ -200,6 +200,28 @@ pub async fn task(
                             metadata.gamemode = mode;
                             metadata.rank = None;
                             delay_queue.reset_at(&metadata.key, tokio::time::Instant::now());
+                        } else {
+                            let Ok(user) = sqlx::query!(
+                                r#"SELECT user_id, osu_id, last_updated, rank
+                                 FROM verified_users
+                                 WHERE is_active = TRUE AND user_id = $1
+                                 "#,
+                                u.get() as i64
+                            )
+                            .fetch_one(&data.database.db)
+                            .await else {
+                                continue;
+                            };
+
+
+                            let key = delay_queue.insert(u, Duration::from_secs(2));
+                            keys.insert(u, Metadata {
+                                key,
+                                osu_id: user.osu_id as u32,
+                                gamemode: mode,
+                                rank: user.rank.map(|r| r as u32),
+                                initial_verification: true
+                            });
                         }
 
                     }
@@ -404,7 +426,9 @@ pub async fn update_roles(
 
     // Conditionally add the new role (only for update, not remove)
     if let (Some(gamemode), Some(rank)) = (gamemode, rank) {
-        roles.push(get_role_id_for_rank(gamemode, rank));
+        println!("gamemode: {gamemode}");
+
+        roles.push(dbg!(get_role_id_for_rank(gamemode, rank)));
     }
 
     if *roles == *member.roles {
@@ -433,6 +457,8 @@ async fn maybe_update(
     gamemode: GameMode,
     rank: Option<u32>,
 ) -> bool {
+    println!("Maybe updating {user_id} with gamemode {gamemode} and rank {rank:?}");
+
     update_roles(
         ctx,
         user_id,

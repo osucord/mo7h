@@ -118,7 +118,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
     update_roles(
         ctx.serenity_context(),
         ctx.author().id,
-        Some(rosu_v2::model::GameMode::Osu),
+        Some(gamemode),
         osu_user.statistics.expect("ALWAYS SENT").global_rank,
         "User has requested a rank update.",
     )
@@ -190,6 +190,7 @@ pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
 #[derive(Debug, lumi::ChoiceParameter)]
 enum GameModeChoice {
     #[name = "Standard"]
+    #[name = "osu"]
     Osu,
     Mania,
     Taiko,
