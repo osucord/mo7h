@@ -224,7 +224,8 @@ pub async fn task(
                                 (true, Some(rank))
                             }
                         }
-                        Err(_) => {
+                        Err(e) => {
+                            dbg!(e);
                             (false, None)
                         }
                     };
@@ -236,7 +237,7 @@ pub async fn task(
 
                     if valid {
                         // 1 day
-                        let time = Utc::now().timestamp() + 86400;
+                        let time = Utc::now().timestamp();
                         let _ = data.database.update_last_updated(u, time, rank).await;
                     } else {
                         let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await;
@@ -355,6 +356,8 @@ const CTB_RANGES: &[RoleRange] = &[
     RoleRange { min_rank: 500000, max_rank: u32::MAX, role_id: RoleId::new(869299254076792892) },
 ];
 
+const ALL_RANGES: [&[RoleRange]; 4] = [OSU_RANGES, MANIA_RANGES, TAIKO_RANGES, CTB_RANGES];
+
 fn get_role_id_for_rank(game_mode: GameMode, rank: u32) -> RoleId {
     match game_mode {
         GameMode::Osu => find_role_for_rank(OSU_RANGES, rank),
@@ -385,23 +388,27 @@ pub async fn update_roles(
     reason: &str,
 ) -> bool {
     let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
+        println!("could not fetch member, failing...");
         return false;
     };
 
     let mut roles = member.roles.to_vec();
 
-    let mut all_ranges = OSU_RANGES
-        .iter()
-        .chain(MANIA_RANGES)
-        .chain(TAIKO_RANGES)
-        .chain(CTB_RANGES);
-
     // remove existing rank roles from the users roles.
-    roles.retain(|role_id| !all_ranges.any(|range| *role_id == range.role_id));
+    roles.retain(|role_id| {
+        !ALL_RANGES
+            .iter()
+            .flat_map(|slice| slice.iter())
+            .any(|range| *role_id == range.role_id)
+    });
 
     // Conditionally add the new role (only for update, not remove)
     if let (Some(gamemode), Some(rank)) = (gamemode, rank) {
         roles.push(get_role_id_for_rank(gamemode, rank));
+    }
+
+    if *roles == *member.roles {
+        return true;
     }
 
     if GUILD_ID
@@ -413,6 +420,7 @@ pub async fn update_roles(
         .await
         .is_err()
     {
+        println!("failed to edit member...");
         return false;
     }
 

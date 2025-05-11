@@ -38,7 +38,8 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                             .description(
                                 "Thanks for verifying! You have automatically been assigned a \
                                  role based off your current osu!std rank. If you would like to \
-                                 choose another gamemode, run the mode command.",
+                                 choose another gamemode, run the </mode:1370135070110912606> \
+                                 command.",
                             ),
                     ),
                 )
@@ -101,6 +102,8 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
 /// Update your rank role automatically! Happens automatically daily.
 #[lumi::command(slash_command, prefix_command, guild_only)]
 pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let Some((osu_id, gamemode)) = ctx.data().database.get_osu_user_id(ctx.author().id).await
     else {
         ctx.say("You are not verified!").await?;

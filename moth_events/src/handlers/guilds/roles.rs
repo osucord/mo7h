@@ -27,12 +27,13 @@ pub(crate) async fn role_delete(
 
     if let Some(role) = role {
         println!(
-            "{MAGENTA}[{guild_name}] A role called {} was deleted! (ID:{role_id})",
+            "{MAGENTA}[{guild_name}] A role called {} was deleted! (ID:{role_id}){RESET}",
             role.name
         );
     } else {
         println!(
-            "{MAGENTA}[{guild_name}] A role called {role_id} was deleted, but was not cached!"
+            "{MAGENTA}[{guild_name}] A role called {role_id} was deleted, but was not \
+             cached!{RESET}"
         );
     }
 
