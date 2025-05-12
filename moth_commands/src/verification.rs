@@ -101,6 +101,7 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             ctx.serenity_context(),
             existing_user,
             None,
+            None,
             &format!(
                 "Unlinked because this osu account has been linked to {} (ID:{}>",
                 ctx.author().name,
@@ -130,7 +131,7 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             .await;
     }
 
-    let (already_verified, _) = if let Some((osu_id, gamemode)) =
+    let (already_verified, gamemode) = if let Some((osu_id, gamemode)) =
         ctx.data().database.get_osu_user_id(ctx.author().id).await
     {
         // already on this user, don't need to hit the db or bg task.
@@ -157,6 +158,7 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             ctx.serenity_context(),
             ctx.author().id,
             Some(user),
+            gamemode,
             "User has verified their osu account.",
         )
         .await;
@@ -189,6 +191,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
         ctx.serenity_context(),
         ctx.author().id,
         Some(&osu_user),
+        Some(gamemode),
         "User has requested a rank update.",
     )
     .await;
@@ -228,6 +231,7 @@ pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
     update_roles(
         ctx.serenity_context(),
         ctx.author().id,
+        None,
         None,
         "User has unlinked their account.",
     )

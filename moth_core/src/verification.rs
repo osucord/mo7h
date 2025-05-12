@@ -16,6 +16,7 @@ use chrono::{TimeZone, Utc};
 use rosu_v2::{
     Osu,
     prelude::{GameMode, RankStatus, UserExtended},
+    request::MapType,
 };
 use serenity::{
     all::{
@@ -246,7 +247,7 @@ pub async fn task(
                             if metadata.initial_verification
                                 || get_role_id_for_rank_opt(metadata.gamemode, metadata.rank) != get_role_id_for_rank_opt(metadata.gamemode, rank)
                             {
-                                (maybe_update(&ctx, u, Some(&osu_user)).await, Some(rank))
+                                (maybe_update(&ctx, u, Some(&osu_user), Some(metadata.gamemode)).await, Some(rank))
                             } else {
                                 (true, Some(rank))
                             }
@@ -440,6 +441,8 @@ const ALL_MAPPER_ROLES: &[(fn(&UserMapHolder) -> bool, RoleId)] = &[
 #[bool_to_bitflags::bool_to_bitflags]
 #[derive(Default)]
 struct UserMapHolder {
+    // DO NOT change the order of these.
+    // well, its not a big deal but the bot will recalc everyone due to different bits.
     ranked_std: bool,
     ranked_mania: bool,
     ranked_taiko: bool,
@@ -468,6 +471,7 @@ pub async fn update_roles(
     ctx: &serenity::all::Context,
     user_id: UserId,
     user: Option<&UserExtended>,
+    game_mode: Option<GameMode>,
     reason: &str,
 ) -> bool {
     // unlink -> remove everything.
@@ -483,14 +487,14 @@ pub async fn update_roles(
     // if we do it here we will only wait a couple micros at most.
     let mut holder = UserMapHolder::default();
     if user.ranked_mapset_count.expect("always sent") > 0 {
-        handle_maps(ctx, user.user_id, MapType::Ranked, &mut holder).await;
+        handle_maps(ctx, user.user_id, MapTypeChoice::Ranked, &mut holder).await;
     }
     if user.loved_mapset_count.expect("always sent") > 0 {
-        handle_maps(ctx, user.user_id, MapType::Loved, &mut holder).await;
+        handle_maps(ctx, user.user_id, MapTypeChoice::Loved, &mut holder).await;
     }
-    /*     if user.guest_mapset_count.expect("always sent") > 0 {
-        handle_maps(ctx, user.user_id, MapType::GuestEither, &mut holder).await;
-    } */
+    if user.guest_mapset_count.expect("always sent") > 0 {
+        handle_maps(ctx, user.user_id, MapTypeChoice::GuestEither, &mut holder).await;
+    }
 
     let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
         println!("could not fetch member, failing...");
@@ -533,7 +537,10 @@ pub async fn update_roles(
 
     // Conditionally add the new role (only for update, not remove)
     if let Some(rank) = user.statistics.as_ref().expect("always sent").global_rank {
-        roles.push(dbg!(get_role_id_for_rank(user.mode, rank)));
+        roles.push(dbg!(get_role_id_for_rank(
+            game_mode.unwrap_or_default(),
+            rank
+        )));
     }
 
     if *roles == *member.roles {
@@ -578,20 +585,18 @@ pub async fn update_roles(
     true
 }
 
-#[expect(unused)]
-enum MapType {
+enum MapTypeChoice {
     Loved,
     Ranked,
     GuestEither,
 }
 
-impl From<MapType> for RankStatus {
-    fn from(val: MapType) -> Self {
+impl From<MapTypeChoice> for MapType {
+    fn from(val: MapTypeChoice) -> Self {
         match val {
-            MapType::Loved => RankStatus::Loved,
-            MapType::Ranked => RankStatus::Ranked,
-            // need to fork
-            MapType::GuestEither => todo!(),
+            MapTypeChoice::Loved => MapType::Loved,
+            MapTypeChoice::Ranked => MapType::Ranked,
+            MapTypeChoice::GuestEither => MapType::Guest,
         }
     }
 }
@@ -599,12 +604,12 @@ impl From<MapType> for RankStatus {
 async fn handle_maps(
     ctx: &serenity::all::Context,
     user_id: u32,
-    map_type: MapType,
+    map_type: MapTypeChoice,
     holder: &mut UserMapHolder,
 ) {
     let osu = &ctx.data::<Data>().web.osu;
 
-    let Ok(mapsets) = osu.user_beatmapsets(user_id).status(map_type.into()).await else {
+    let Ok(mapsets) = osu.user_beatmapsets(user_id).status(&map_type.into()).await else {
         return;
     };
 
@@ -656,11 +661,13 @@ async fn maybe_update(
     ctx: &serenity::all::Context,
     user_id: UserId,
     user: Option<&UserExtended>,
+    gamemode: Option<GameMode>,
 ) -> bool {
     update_roles(
         ctx,
         user_id,
         user,
+        gamemode,
         "Roles adjusted due to osu! rank update.",
     )
     .await
@@ -671,5 +678,5 @@ pub async fn remove(
     user_id: UserId,
     user: Option<&UserExtended>,
 ) -> bool {
-    update_roles(ctx, user_id, user, "User has unverified.").await
+    update_roles(ctx, user_id, user, None, "User has unverified.").await
 }
