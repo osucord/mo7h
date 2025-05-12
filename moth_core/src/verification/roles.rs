@@ -4,8 +4,8 @@ use rosu_v2::{
     request::MapType,
 };
 use serenity::all::{
-    CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId, RoleId,
-    UserId,
+    CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
+    MessageFlags, RoleId, UserId,
 };
 
 use crate::data::structs::Data;
@@ -318,7 +318,8 @@ pub async fn update_roles(
                 CreateMessage::new()
                     // phil and me
                     .content("<@101090238067113984> <@158567567487795200>")
-                    .embed(embed),
+                    .embed(embed)
+                    .flags(MessageFlags::SUPPRESS_NOTIFICATIONS),
             )
             .await;
     }
@@ -341,6 +342,7 @@ pub async fn update_roles(
                 CreateMessage::new()
                     // phil and me
                     .content("<@101090238067113984> <@291089948709486593> <@158567567487795200>")
+                    .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
                     .embed(embed),
             )
             .await;
