@@ -13,7 +13,7 @@ use std::sync::atomic::AtomicBool;
 
 use crate::{
     standby::AuthenticationStandby,
-    verification::{VerificationSender, task},
+    verification::{sender::VerificationSender, task},
 };
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;

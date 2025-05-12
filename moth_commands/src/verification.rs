@@ -3,7 +3,7 @@ use crate::{Context, Error};
 use lumi::CreateReply;
 
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
-use moth_core::verification::{update_roles, LOG_CHANNEL};
+use moth_core::verification::roles::{update_roles, MetadataType, LOG_CHANNEL};
 use rosu_v2::{model::GameMode, prelude::UserExtended};
 use serenity::all::{CreateEmbedAuthor, CreateMessage};
 
@@ -52,7 +52,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                 .everyone(false)
                 .all_roles(false);
 
-            let _ = moth_core::verification::LOG_CHANNEL
+            let _ = moth_core::verification::roles::LOG_CHANNEL
                 .send_message(
                     &ctx.serenity_context().http,
                     CreateMessage::new()
@@ -158,7 +158,7 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             ctx.serenity_context(),
             ctx.author().id,
             Some(user),
-            gamemode,
+            Some(MetadataType::GameMode(gamemode.unwrap_or_default())),
             "User has verified their osu account.",
         )
         .await;
@@ -191,7 +191,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
         ctx.serenity_context(),
         ctx.author().id,
         Some(&osu_user),
-        Some(gamemode),
+        Some(MetadataType::GameMode(gamemode)),
         "User has requested a rank update.",
     )
     .await;
@@ -202,7 +202,7 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
         .all_roles(false);
 
     // TODO: set it in delayqueue - or remove because like... 1 day ?
-    let _ = moth_core::verification::LOG_CHANNEL
+    let _ = moth_core::verification::roles::LOG_CHANNEL
         .send_message(
             &ctx.serenity_context().http,
             CreateMessage::new()
@@ -242,7 +242,7 @@ pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
         .everyone(false)
         .all_roles(false);
 
-    let _ = moth_core::verification::LOG_CHANNEL
+    let _ = moth_core::verification::roles::LOG_CHANNEL
         .send_message(
             &ctx.serenity_context().http,
             CreateMessage::new()

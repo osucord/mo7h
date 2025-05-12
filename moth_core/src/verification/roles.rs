@@ -1,332 +1,23 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
+use rosu_v2::{
+    model::GameMode,
+    prelude::{RankStatus, UserExtended},
+    request::MapType,
+};
+use serenity::all::{
+    CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId, RoleId,
+    UserId,
 };
 
 use crate::data::structs::Data;
-use axum::{
-    Router,
-    extract::{Query, State, rejection::QueryRejection},
-    http::StatusCode,
-    response::Html,
-    routing::get,
-};
-use chrono::{TimeZone, Utc};
-use rosu_v2::{
-    Osu,
-    prelude::{GameMode, RankStatus, UserExtended},
-    request::MapType,
-};
-use serenity::{
-    all::{
-        CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
-        RoleId, UserId,
-    },
-    futures::StreamExt,
-};
-use tokio::sync::mpsc::{self, UnboundedSender};
-use tokio_util::time::{DelayQueue, delay_queue::Key};
-use tower_http::cors::CorsLayer;
-
-#[derive(serde::Deserialize)]
-struct Params {
-    state: u8,
-    code: String,
-}
-
-pub async fn run(data: Arc<Data>) {
-    let cors = CorsLayer::permissive();
-
-    let app = Router::new()
-        .route("/", get(auth_osu))
-        .with_state(data)
-        .layer(cors);
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-
-    axum::serve(listener, app).await.unwrap();
-}
-
-#[derive(serde::Serialize)]
-struct IndexContext<'a> {
-    success: bool,
-    user: Option<&'a str>,
-}
-
-async fn auth_osu(
-    query: Result<Query<Params>, QueryRejection>,
-    State(state): State<Arc<Data>>,
-) -> Result<(StatusCode, Html<String>), StatusCode> {
-    if let Ok(page) = auth(query, &state).await {
-        return Ok((StatusCode::OK, Html(page)));
-    }
-
-    let context = IndexContext {
-        success: false,
-        user: None,
-    };
-
-    let page = state
-        .web
-        .handlebars
-        .render("index", &context)
-        .expect("Failed to render template");
-
-    Ok((StatusCode::OK, Html(page)))
-}
-
-async fn auth(query: Result<Query<Params>, QueryRejection>, data: &Data) -> Result<String, ()> {
-    let Query(params) = query.map_err(|_| ())?;
-
-    let osu = Osu::builder()
-        .client_id(data.web.osu_client_id)
-        .client_secret(data.web.osu_client_secret.expose_secret())
-        .with_authorization(
-            params.code,
-            "https://verify.osucord.moe",
-            rosu_v2::prelude::Scopes::Identify,
-        )
-        .build()
-        .await
-        .map_err(|_| ())?;
-
-    let user = osu.own_data().await.map_err(|_| ())?;
-
-    let context = IndexContext {
-        success: true,
-        user: Some(&user.username),
-    };
-
-    let page = data
-        .web
-        .handlebars
-        .render("index", &context)
-        .map_err(|_| ())?;
-
-    data.web.auth_standby.process_osu(user, params.state);
-
-    Ok(page)
-}
-
-#[derive(Default, Clone)]
-pub struct VerificationSender {
-    sender: Arc<tokio::sync::Mutex<Option<UnboundedSender<VerificationCommand>>>>,
-}
-
-impl VerificationSender {
-    pub async fn shutdown(&self) {
-        let lock = self.sender.lock().await;
-
-        lock.as_ref().map(|s| s.send(VerificationCommand::Shutdown));
-    }
-
-    pub async fn verify(&self, user_id: UserId, osu_id: u32, gamemode: GameMode) {
-        let lock = self.sender.lock().await;
-
-        lock.as_ref()
-            .map(|s| s.send(VerificationCommand::Link((user_id, osu_id, gamemode))));
-    }
-
-    pub async fn unverify(&self, user_id: UserId, osu_id: u32) {
-        let lock = self.sender.lock().await;
-
-        lock.as_ref()
-            .map(|s| s.send(VerificationCommand::Unlink((user_id, osu_id))));
-    }
-
-    pub async fn gamemode_change(&self, user_id: UserId, gamemode: GameMode) {
-        let lock = self.sender.lock().await;
-
-        lock.as_ref()
-            .map(|s| s.send(VerificationCommand::GameModeChange(user_id, gamemode)));
-    }
-
-    /// Sets the sender to the provided `UnboundedSender`.
-    pub async fn set(&self, tx: UnboundedSender<VerificationCommand>) {
-        *self.sender.lock().await = Some(tx);
-    }
-
-    #[must_use]
-    pub fn new(tx: Option<UnboundedSender<VerificationCommand>>) -> Self {
-        Self {
-            sender: Arc::new(tokio::sync::Mutex::new(tx)),
-        }
-    }
-}
-
-pub enum VerificationCommand {
-    Link((serenity::all::UserId, u32, GameMode)),
-    Unlink((serenity::all::UserId, u32)),
-    // changes gamemode, assigns new metadata and recalcs.
-    GameModeChange(serenity::all::UserId, GameMode),
-    Shutdown,
-}
-
-pub struct Metadata {
-    key: Key,
-    osu_id: u32,
-    gamemode: GameMode,
-    rank: Option<u32>,
-    initial_verification: bool,
-}
-
-#[expect(clippy::too_many_lines)]
-pub async fn task(
-    ctx: serenity::all::Context,
-    mut rx: mpsc::UnboundedReceiver<VerificationCommand>,
-) {
-    let data = ctx.data::<Data>();
-    let mut delay_queue = DelayQueue::new();
-    let mut keys = HashMap::new();
-    let mut empty_fill_instant = std::time::Instant::now();
-    let mut interval = tokio::time::interval(Duration::from_secs(1));
-
-    loop {
-        tokio::select! {
-            Some(cmd) = rx.recv() => {
-                match cmd {
-                    VerificationCommand::Link((u, o, mode)) => {
-                        let key = delay_queue.insert(u, Duration::from_secs(86400));
-                        keys.insert(u, Metadata {
-                            key,
-                            osu_id: o,
-                            gamemode: mode,
-                            rank: None,
-                            initial_verification: true,
-                        });
-                    },
-                    VerificationCommand::Unlink((u, _)) => {
-                        if let Some(metadata) = keys.remove(&u) {
-                            delay_queue.remove(&metadata.key);
-                        }
-                    },
-                    VerificationCommand::GameModeChange(u, mode) => {
-                        if let Some(metadata) = keys.get_mut(&u) {
-                            metadata.initial_verification = true;
-                            metadata.gamemode = mode;
-                            metadata.rank = None;
-                            delay_queue.reset_at(&metadata.key, tokio::time::Instant::now());
-                        } else {
-                            let Ok(user) = sqlx::query!(
-                                r#"SELECT user_id, osu_id, last_updated, rank
-                                 FROM verified_users
-                                 WHERE is_active = TRUE AND user_id = $1
-                                 "#,
-                                u.get() as i64
-                            )
-                            .fetch_one(&data.database.db)
-                            .await else {
-                                continue;
-                            };
-
-
-                            let key = delay_queue.insert(u, Duration::from_secs(2));
-                            keys.insert(u, Metadata {
-                                key,
-                                osu_id: user.osu_id as u32,
-                                gamemode: mode,
-                                rank: user.rank.map(|r| r as u32),
-                                initial_verification: true
-                            });
-                        }
-
-                    }
-                    VerificationCommand::Shutdown => break,
-                }
-            },
-            Some(expired) = delay_queue.next() => {
-                let u = expired.into_inner();
-                if let Some(metadata) = keys.remove(&u) {
-                    let osu = &data.web.osu;
-                    let (valid, rank) = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
-                        Ok(osu_user) => {
-                            let rank = osu_user.statistics.as_ref().expect("always sent").global_rank;
-                            // do not update rank if its not a new role.
-                            // but always if its "initial" or a gamemode switch.
-                            if metadata.initial_verification
-                                || get_role_id_for_rank_opt(metadata.gamemode, metadata.rank) != get_role_id_for_rank_opt(metadata.gamemode, rank)
-                            {
-                                (maybe_update(&ctx, u, Some(&osu_user), Some(metadata.gamemode)).await, Some(rank))
-                            } else {
-                                (true, Some(rank))
-                            }
-                        }
-                        Err(e) => {
-                            dbg!(e);
-                            (false, None)
-                        }
-                    };
-
-                    let mentions = serenity::all::CreateAllowedMentions::new()
-                    .all_users(false)
-                    .everyone(false)
-                    .all_roles(false);
-
-                    if valid {
-                        // 1 day
-                        let time = Utc::now().timestamp();
-                        let _ = data.database.update_last_updated(u, time, rank).await;
-                    } else {
-                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await;
-                        let _ = data.database.inactive_user(u).await;
-                        // i should figure out if its a member failure or a restricted failure.
-                    }
-
-                }
-            },
-            _ = interval.tick() => {
-                if delay_queue.is_empty() && empty_fill_instant.elapsed() > Duration::from_secs(30) {
-                    let Ok(users) = sqlx::query!(
-                        r#"
-                            SELECT user_id, osu_id, last_updated, rank, gamemode
-                            FROM verified_users
-                            WHERE is_active = TRUE
-                            ORDER BY last_updated ASC
-                            LIMIT 100
-                        "#
-                    )
-                    .fetch_all(&data.database.db)
-                    .await else {
-                        return;
-                    };
-
-                    for user in users {
-                        let last_updated_time = Utc.timestamp_opt(user.last_updated, 0);
-                        let target_time = last_updated_time.latest().unwrap() + chrono::Duration::days(1);
-
-                        let now = Utc::now();
-                        let duration = target_time.signed_duration_since(now);
-                        let seconds = duration.num_seconds();
-
-                        let key = delay_queue.insert(
-                            (user.user_id as u64).into(),
-                            Duration::from_secs(seconds.try_into().unwrap_or(0)),
-                        );
-                        keys.insert((user.user_id as u64).into(), Metadata {
-                            key,
-                            osu_id: user.osu_id as u32,
-                            gamemode: (user.gamemode as u8).into(),
-                            rank: user.rank.map(|r| r as u32),
-                            initial_verification: false,
-                        });
-                    }
-
-                    empty_fill_instant = Instant::now();
-                }
-            }
-        }
-    }
-}
-
-const GUILD_ID: GuildId = GuildId::new(98226572468690944);
-pub const LOG_CHANNEL: GenericChannelId = GenericChannelId::new(776522946872344586);
 
 struct RoleRange {
     min_rank: u32,
     max_rank: u32,
     role_id: RoleId,
 }
+
+const GUILD_ID: GuildId = GuildId::new(98226572468690944);
+pub const LOG_CHANNEL: GenericChannelId = GenericChannelId::new(776522946872344586);
 
 #[rustfmt::skip]
 const OSU_RANGES: &[RoleRange] = &[
@@ -395,7 +86,8 @@ fn get_role_id_for_rank(game_mode: GameMode, rank: u32) -> RoleId {
     }
 }
 
-fn get_role_id_for_rank_opt(game_mode: GameMode, rank: Option<u32>) -> Option<RoleId> {
+#[must_use]
+pub fn get_role_id_for_rank_opt(game_mode: GameMode, rank: Option<u32>) -> Option<RoleId> {
     Some(get_role_id_for_rank(game_mode, rank?))
 }
 
@@ -439,8 +131,8 @@ const ALL_MAPPER_ROLES: &[(fn(&UserMapHolder) -> bool, RoleId)] = &[
 ];
 
 #[bool_to_bitflags::bool_to_bitflags]
-#[derive(Default)]
-struct UserMapHolder {
+#[derive(Default, Eq, PartialEq, Copy, Clone)]
+pub struct UserMapHolder {
     // DO NOT change the order of these.
     // well, its not a big deal but the bot will recalc everyone due to different bits.
     ranked_std: bool,
@@ -465,17 +157,31 @@ impl UserMapHolder {
             .iter()
             .filter_map(move |(check, role)| if check(self) { Some(*role) } else { None })
     }
+
+    #[must_use]
+    pub fn bits(&self) -> u8 {
+        self.__generated_flags.bits()
+    }
+
+    #[must_use]
+    pub fn from_bits(bits: u8) -> Self {
+        Self {
+            __generated_flags: UserMapHolderGeneratedFlags::from_bits(bits)
+                .expect("should not be provided with invalid bits."),
+        }
+    }
 }
 
+#[expect(clippy::too_many_lines)]
 pub async fn update_roles(
     ctx: &serenity::all::Context,
     user_id: UserId,
     user: Option<&UserExtended>,
-    game_mode: Option<GameMode>,
+    metadata: Option<MetadataType<'_>>,
     reason: &str,
 ) -> bool {
     // unlink -> remove everything.
-    let Some(user) = user else {
+    let (Some(user), Some(metadata)) = (user, metadata) else {
         kill_roles(ctx, user_id).await;
         return true;
     };
@@ -494,6 +200,26 @@ pub async fn update_roles(
     }
     if user.guest_mapset_count.expect("always sent") > 0 {
         handle_maps(ctx, user.user_id, MapTypeChoice::GuestEither, &mut holder).await;
+    }
+
+    let current_rank = user.statistics.as_ref().expect("always sent").global_rank;
+    let matched_roles = SPECIAL_MAPPING
+        .iter()
+        .filter(|(id, _)| groups.iter().any(|g| g.id == *id))
+        .map(|(_, role)| *role)
+        .collect::<Vec<_>>();
+
+    // basically, if any condition is not equal, we recalc.
+    let is_outdated = metadata.initial_verification()
+        || holder != metadata.mapping_or_default()
+        || !metadata
+            .verified_roles_or_default()
+            .eq(matched_roles.iter().copied())
+        || get_role_id_for_rank_opt(metadata.gamemode(), metadata.rank())
+            != get_role_id_for_rank_opt(metadata.gamemode(), current_rank);
+
+    if !is_outdated {
+        return true;
     }
 
     let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
@@ -523,14 +249,12 @@ pub async fn update_roles(
 
     // assign the special roles they should have.
     let mut new_special = Vec::new();
-    for group in groups {
-        if let Some((_, role_id)) = SPECIAL_MAPPING.iter().find(|g| g.0 == group.id).copied() {
-            // we use this to notify if we assigned a new special role.
-            if !member.roles.contains(&role_id) {
-                new_special.push(role_id);
-            }
-            roles.push(role_id);
+    for role_id in &matched_roles {
+        // we use this to notify if we assigned a new special role.
+        if !member.roles.contains(role_id) {
+            new_special.push(*role_id);
         }
+        roles.push(*role_id);
     }
 
     for active_role in holder.active_roles() {
@@ -541,8 +265,8 @@ pub async fn update_roles(
     }
 
     // Conditionally add the new role (only for update, not remove)
-    if let Some(rank) = user.statistics.as_ref().expect("always sent").global_rank {
-        roles.push(get_role_id_for_rank(game_mode.unwrap_or_default(), rank));
+    if let Some(rank) = current_rank {
+        roles.push(get_role_id_for_rank(metadata.gamemode(), rank));
     }
 
     if *roles == *member.roles {
@@ -585,6 +309,54 @@ pub async fn update_roles(
     }
 
     true
+}
+
+pub enum MetadataType<'a> {
+    GameMode(GameMode),
+    Full(&'a super::Metadata),
+}
+
+impl MetadataType<'_> {
+    #[must_use]
+    pub fn gamemode(&self) -> GameMode {
+        match self {
+            MetadataType::GameMode(game_mode) => *game_mode,
+            MetadataType::Full(metadata) => metadata.gamemode,
+        }
+    }
+
+    #[must_use]
+    pub fn mapping_or_default(&self) -> UserMapHolder {
+        match self {
+            MetadataType::GameMode(_) => UserMapHolder::default(),
+            MetadataType::Full(metadata) => metadata.map_status,
+        }
+    }
+
+    pub fn verified_roles_or_default(&self) -> impl Iterator<Item = RoleId> + '_ {
+        match self {
+            MetadataType::GameMode(_) => [].iter(),
+            MetadataType::Full(metadata) => metadata.verified_roles.iter(),
+        }
+        .copied()
+    }
+
+    #[must_use]
+    pub fn rank(&self) -> Option<u32> {
+        match self {
+            MetadataType::GameMode(_) => None,
+            MetadataType::Full(metadata) => metadata.rank,
+        }
+    }
+
+    #[must_use]
+    pub fn initial_verification(&self) -> bool {
+        match self {
+            // update or verification is considered "initial" and subject to full refresh.
+            MetadataType::GameMode(_) => true,
+            MetadataType::Full(metadata) => metadata.initial_verification,
+        }
+    }
 }
 
 enum MapTypeChoice {
@@ -673,17 +445,17 @@ async fn kill_roles(ctx: &serenity::all::Context, user_id: UserId) {
         .await;
 }
 
-async fn maybe_update(
+pub(super) async fn maybe_update(
     ctx: &serenity::all::Context,
     user_id: UserId,
     user: Option<&UserExtended>,
-    gamemode: Option<GameMode>,
+    metadata: Option<MetadataType<'_>>,
 ) -> bool {
     update_roles(
         ctx,
         user_id,
         user,
-        gamemode,
+        metadata,
         "Roles adjusted due to osu! rank update.",
     )
     .await
