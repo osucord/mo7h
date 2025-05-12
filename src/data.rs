@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use moth_core::data::structs::{Data, StarboardConfig};
+use moth_core::data::structs::{Data, StarboardConfig, WebServer};
 use serenity::all::{GenericChannelId, GuildId, RoleId};
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -19,6 +19,7 @@ pub async fn setup() -> Arc<Data> {
         starboard_config,
         ocr_engine: moth_core::ocr::OcrEngine::new(),
         new_join_vc: DashMap::default(),
+        web: WebServer::new().await,
     })
 }
 

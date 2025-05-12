@@ -1,16 +1,22 @@
 use ::serenity::{
     all::{GenericChannelId, MessageId, ReactionType},
+    futures::FutureExt,
     small_fixed_array,
 };
+use chrono::Utc;
 use dashmap::{DashMap, DashSet};
 use parking_lot::Mutex;
 use regex::Regex;
+use rosu_v2::{model::GameMode, prelude::UserExtended};
 use serenity::all::UserId;
 use sqlx::{Executor, PgPool, postgres::PgPoolOptions, query};
 use std::{
     collections::{HashMap, HashSet},
     env,
+    pin::Pin,
+    task::Poll,
 };
+use tokio::time::Timeout;
 
 use crate::data::structs::{DmActivity, Error};
 
@@ -843,9 +849,158 @@ impl Database {
         Ok(true)
     }
 
+    pub async fn get_gamemode(&self, user_id: UserId, osu_id: u32) -> Result<GameMode, Error> {
+        let res = query!(
+            "SELECT gamemode FROM verified_users WHERE user_id = $1 AND osu_id = $2",
+            user_id.get() as i64,
+            osu_id as i32
+        )
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok((res.gamemode as u8).into())
+    }
+
+    pub async fn inactive_user(&self, user_id: UserId) -> Result<(), Error> {
+        Ok(query!(
+            "UPDATE verified_users SET is_active = FALSE WHERE user_id = $1",
+            user_id.get() as i64,
+        )
+        .execute(&self.db)
+        .await
+        .map(|_| ())?)
+    }
+
+    pub async fn update_last_updated(
+        &self,
+        user_id: UserId,
+        time: i64,
+        rank: Option<Option<u32>>,
+    ) -> Result<(), Error> {
+        if let Some(rank) = rank {
+            query!(
+                "UPDATE verified_users SET last_updated = $2, rank = $3 WHERE user_id = $1",
+                user_id.get() as i64,
+                time,
+                rank.map(|r| r as i32)
+            )
+            .execute(&self.db)
+            .await?;
+        } else {
+            query!(
+                "UPDATE verified_users SET last_updated = $2 WHERE user_id = $1",
+                user_id.get() as i64,
+                time
+            )
+            .execute(&self.db)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn verify_user(&self, user_id: UserId, osu_id: u32) -> Result<(), Error> {
+        let now = Utc::now().timestamp();
+
+        self.insert_user(user_id).await?;
+
+        query!(
+            r#"
+            INSERT INTO verified_users (user_id, osu_id, last_updated, is_active, gamemode)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (user_id)
+            DO UPDATE SET
+                last_updated = EXCLUDED.last_updated,
+                is_active = EXCLUDED.is_active,
+                gamemode = 0
+            "#,
+            user_id.get() as i64,
+            osu_id as i32,
+            now,
+            true,
+            0
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn unlink_user(&self, user_id: UserId) -> Result<u32, Error> {
+        let record = query!(
+            "DELETE FROM verified_users WHERE user_id = $1 RETURNING osu_id",
+            user_id.get() as i64
+        )
+        .fetch_optional(&self.db)
+        .await?;
+
+        Ok(record.unwrap().osu_id as u32)
+    }
+
+    pub async fn get_osu_user_id(&self, user_id: UserId) -> Option<(u32, GameMode)> {
+        let query = query!(
+            "SELECT osu_id, gamemode FROM verified_users WHERE user_id = $1",
+            user_id.get() as i64
+        )
+        .fetch_one(&self.db)
+        .await
+        .ok()?;
+
+        Some((query.osu_id as u32, (query.gamemode as u8).into()))
+    }
+
+    pub async fn change_mode(&self, user_id: UserId, gamemode: GameMode) -> Result<(), Error> {
+        query!(
+            "UPDATE verified_users SET gamemode = $1 WHERE user_id = $2",
+            gamemode as i16,
+            user_id.get() as i64
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_existing_links(&self, osu_id: u32) -> Result<Vec<UserId>, sqlx::Error> {
+        sqlx::query_scalar!(
+            "SELECT user_id FROM verified_users WHERE osu_id = $1",
+            osu_id as i32
+        )
+        .fetch_all(&self.db)
+        .await
+        .map(|u| {
+            u.into_iter()
+                .map(|u| UserId::new(u as u64))
+                .collect::<Vec<UserId>>()
+        })
+    }
+
     // temporary function to give access to the inner command overwrites while i figure something out.
     #[must_use]
     pub fn inner_overwrites(&self) -> &Checks {
         &self.owner_overwrites
+    }
+}
+
+pub struct WaitForOsuAuth {
+    pub state: u8,
+    fut: Pin<Box<Timeout<tokio::sync::oneshot::Receiver<UserExtended>>>>,
+}
+pub enum AuthenticationStandbyError {
+    Canceled,
+    Timeout,
+}
+
+impl Future for WaitForOsuAuth {
+    type Output = Result<UserExtended, AuthenticationStandbyError>;
+
+    #[inline]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        match self.fut.poll_unpin(cx) {
+            Poll::Ready(Ok(Ok(user))) => Poll::Ready(Ok(user)),
+            Poll::Ready(Ok(Err(_))) => Poll::Ready(Err(AuthenticationStandbyError::Canceled)),
+            Poll::Ready(Err(_)) => Poll::Ready(Err(AuthenticationStandbyError::Timeout)),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

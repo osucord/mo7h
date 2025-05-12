@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="darkreader-lock">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>osucord Verification</title>
+    <style>
+        * {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        body {
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0d0b0b;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .content {
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        .icon-container {
+            margin-bottom: 20px;
+        }
+
+        .icon {
+            height: 200px;
+        }
+
+        #success .error-enable {
+            display: none;
+        }
+
+        #error .success-enable {
+            display: none;
+        }
+
+        * {
+            font-family: sans-serif;
+        }
+
+        .text {
+            color: #fff;
+            font-size: 36px;
+        }
+
+        .info {
+            font-size: 20px;
+            color: #fffa;
+        }
+
+        .noise {
+            position: absolute;
+            inset: 0;
+            z-index: -10;
+            background-size: 500px;
+            mix-blend-mode: overlay;
+            background-image: url(https://i.mothoxi.de/WSAIjRM5.webp)
+        }
+    </style>
+</head>
+
+<body id="{{#if success}}success{{else}}error{{/if}}">
+    <div class="content">
+        <div class="icon-container">
+            <img src="https://i.mothoxi.de/LB57HC64.png" alt="Moth" class="icon">
+        </div>
+        <p class="success-enable text">Authentication successful!</p>
+        <p class="success-enable info">Welcome {{user}}!</p>
+        <p class="error-enable text">Authentication failed</p>
+        <p class="error-enable info">Failed to complete authorization.</p>
+    </div>
+    <div class="noise"></div>
+</body>
+
+
+</html>

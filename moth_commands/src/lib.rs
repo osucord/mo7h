@@ -23,6 +23,7 @@ pub mod owner;
 pub mod register;
 pub mod starboard;
 pub mod utility;
+pub mod verification;
 
 pub mod utils;
 
@@ -35,6 +36,7 @@ pub fn commands() -> Vec<Command> {
         .chain(utility::commands())
         .chain(starboard::commands())
         .chain(moderation::commands())
+        .chain(verification::commands())
         .collect()
 }
 

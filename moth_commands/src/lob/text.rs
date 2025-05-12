@@ -1,9 +1,10 @@
+use std::path::Path;
 use std::time::Duration;
 
 use crate::{Context, Error};
+use lumi::serenity_prelude::{self as serenity, UserId};
 use moth_core::data::lob::*;
 use moth_core::data::structs::InvocationData;
-use lumi::serenity_prelude::{self as serenity, UserId};
 
 /// i lob
 #[lumi::command(
@@ -209,7 +210,7 @@ pub async fn total_lobs(ctx: Context<'_>) -> Result<(), Error> {
     check = "trontin"
 )]
 pub async fn send_lobs(ctx: Context<'_>) -> Result<(), Error> {
-    let attachment = serenity::CreateAttachment::path(LOB_PATH).await?;
+    let attachment = serenity::CreateAttachment::path(Path::new(LOB_PATH))?;
     ctx.send(lumi::CreateReply::default().attachment(attachment))
         .await?;
     Ok(())

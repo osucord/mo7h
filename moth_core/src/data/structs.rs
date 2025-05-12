@@ -1,6 +1,7 @@
 use dashmap::DashMap;
 use parking_lot::RwLock;
-use serenity::all::{ChannelId, Member, RoleId};
+use rosu_v2::Osu;
+use serenity::all::{ChannelId, Member, RoleId, SecretString};
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
@@ -9,6 +10,11 @@ use std::{
 use lumi::serenity_prelude::{GenericChannelId, GuildId, MessageId, UserId};
 
 use std::sync::atomic::AtomicBool;
+
+use crate::{
+    standby::AuthenticationStandby,
+    verification::{sender::VerificationSender, task},
+};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = lumi::Context<'a, Data, Error>;
@@ -33,6 +39,58 @@ pub struct Data {
     pub ocr_engine: crate::ocr::OcrEngine,
     /// ugh
     pub new_join_vc: DashMap<UserId, Fuck>,
+    pub web: WebServer,
+}
+
+pub struct WebServer {
+    pub osu: Osu,
+    pub handlebars: handlebars::Handlebars<'static>,
+    pub osu_client_id: u64,
+    pub osu_client_secret: SecretString,
+    pub task_sender: VerificationSender,
+    pub auth_standby: AuthenticationStandby,
+}
+
+impl Drop for WebServer {
+    fn drop(&mut self) {
+        let sender = self.task_sender.clone();
+        tokio::spawn(async move {
+            sender.shutdown().await;
+        });
+    }
+}
+
+impl WebServer {
+    pub async fn new() -> Self {
+        let client_id = std::env::var("CLIENT_ID").unwrap().parse::<u64>().unwrap();
+        let client_secret = std::env::var("CLIENT_SECRET").unwrap();
+
+        let mut handlebars = handlebars::Handlebars::new();
+        handlebars
+            .register_template_file("index", "./web/auth/index.hbs")
+            .expect("Failed to register template");
+
+        Self {
+            osu: Osu::new(client_id, client_secret.clone()).await.unwrap(),
+            osu_client_id: client_id,
+            osu_client_secret: SecretString::new(client_secret.into()),
+            handlebars,
+            task_sender: VerificationSender::new(None),
+            auth_standby: AuthenticationStandby::new(),
+        }
+    }
+
+    /// Starts the background task, will run regardless of if an existing task is running (will not be dropped)
+    ///
+    /// Populates the task sender.
+    pub async fn start_background_task(&self, ctx: serenity::all::Context) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        self.task_sender.set(tx).await;
+
+        tokio::spawn(async move {
+            task(ctx, rx).await;
+        });
+    }
 }
 
 #[derive(Clone, Debug)]
