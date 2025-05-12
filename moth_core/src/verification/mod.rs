@@ -226,7 +226,7 @@ pub async fn task(
                         let time = Utc::now().timestamp();
                         let _ = data.database.update_last_updated(u, time, rank).await;
                     } else {
-                        let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await;
+                        /* let _ = LOG_CHANNEL.send_message(&ctx.http, CreateMessage::new().content(format!("❌ Could not update <@{u}>'s roles due to error: (https://osu.ppy.sh/users/{})", metadata.osu_id)).allowed_mentions(mentions)).await; */
                         let _ = data.database.inactive_user(u).await;
                         // i should figure out if its a member failure or a restricted failure.
                     }

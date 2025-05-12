@@ -192,14 +192,14 @@ pub async fn update_roles(
     // if we wait too long the chances of say, chirou muting them or a mute expiring increases.
     // if we do it here we will only wait a couple micros at most.
     let mut holder = UserMapHolder::default();
+    if user.guest_mapset_count.expect("always sent") > 0 {
+        handle_maps(ctx, user.user_id, MapTypeChoice::GuestEither, &mut holder).await;
+    }
     if user.ranked_mapset_count.expect("always sent") > 0 {
         handle_maps(ctx, user.user_id, MapTypeChoice::Ranked, &mut holder).await;
     }
     if user.loved_mapset_count.expect("always sent") > 0 {
         handle_maps(ctx, user.user_id, MapTypeChoice::Loved, &mut holder).await;
-    }
-    if user.guest_mapset_count.expect("always sent") > 0 {
-        handle_maps(ctx, user.user_id, MapTypeChoice::GuestEither, &mut holder).await;
     }
 
     let current_rank = user.statistics.as_ref().expect("always sent").global_rank;
@@ -359,6 +359,7 @@ impl MetadataType<'_> {
     }
 }
 
+#[derive(Copy, Clone)]
 enum MapTypeChoice {
     Loved,
     Ranked,
@@ -382,30 +383,54 @@ async fn handle_maps(
     holder: &mut UserMapHolder,
 ) {
     let osu = &ctx.data::<Data>().web.osu;
+    let mut offset = 0;
 
-    let Ok(mapsets) = osu.user_beatmapsets(user_id).status(&map_type.into()).await else {
+    if holder.__generated_flags.is_all() {
         return;
-    };
+    }
 
-    for mapset in mapsets {
-        for map in mapset.maps.expect("always sent") {
-            if map.creator_id == user_id {
-                match map.status {
-                    RankStatus::Ranked | RankStatus::Approved => match map.mode {
-                        GameMode::Osu => holder.set_ranked_std(true),
-                        GameMode::Taiko => holder.set_ranked_taiko(true),
-                        GameMode::Catch => holder.set_ranked_catch(true),
-                        GameMode::Mania => holder.set_ranked_mania(true),
-                    },
-                    RankStatus::Loved => match map.mode {
-                        GameMode::Osu => holder.set_loved_std(true),
-                        GameMode::Taiko => holder.set_loved_taiko(true),
-                        GameMode::Catch => holder.set_loved_catch(true),
-                        GameMode::Mania => holder.set_loved_mania(true),
-                    },
-                    _ => {}
+    loop {
+        let Ok(mapsets) = osu
+            .user_beatmapsets(user_id)
+            .status(&map_type.into())
+            .offset(offset)
+            .limit(5)
+            .await
+        else {
+            return;
+        };
+
+        let len = mapsets.len();
+        offset += len;
+
+        for mapset in mapsets {
+            for map in mapset.maps.expect("always sent") {
+                if map.creator_id == user_id {
+                    match map.status {
+                        RankStatus::Ranked | RankStatus::Approved => match map.mode {
+                            GameMode::Osu => holder.set_ranked_std(true),
+                            GameMode::Taiko => holder.set_ranked_taiko(true),
+                            GameMode::Catch => holder.set_ranked_catch(true),
+                            GameMode::Mania => holder.set_ranked_mania(true),
+                        },
+                        RankStatus::Loved => match map.mode {
+                            GameMode::Osu => holder.set_loved_std(true),
+                            GameMode::Taiko => holder.set_loved_taiko(true),
+                            GameMode::Catch => holder.set_loved_catch(true),
+                            GameMode::Mania => holder.set_loved_mania(true),
+                        },
+                        _ => {}
+                    }
+                }
+
+                if holder.__generated_flags.is_all() {
+                    break;
                 }
             }
+        }
+
+        if len != 5 {
+            break;
         }
     }
 }
