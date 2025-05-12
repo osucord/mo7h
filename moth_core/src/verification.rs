@@ -512,6 +512,11 @@ pub async fn update_roles(
     });
 
     roles.retain(|role_id| {
+        // Check if the role is a known special role
+        !SPECIAL_MAPPING.iter().any(|(_, r)| r == role_id)
+    });
+
+    roles.retain(|role_id| {
         // Remove role if it's in ALL_MAPPER_ROLES
         !UserMapHolder::all_roles().any(|r| r == *role_id)
     });
@@ -537,10 +542,7 @@ pub async fn update_roles(
 
     // Conditionally add the new role (only for update, not remove)
     if let Some(rank) = user.statistics.as_ref().expect("always sent").global_rank {
-        roles.push(dbg!(get_role_id_for_rank(
-            game_mode.unwrap_or_default(),
-            rank
-        )));
+        roles.push(get_role_id_for_rank(game_mode.unwrap_or_default(), rank));
     }
 
     if *roles == *member.roles {
@@ -637,7 +639,7 @@ async fn handle_maps(
 }
 
 async fn kill_roles(ctx: &serenity::all::Context, user_id: UserId) {
-    let Ok(member) = ctx.http.get_member(GUILD_ID, user_id).await else {
+    let Ok(mut member) = ctx.http.get_member(GUILD_ID, user_id).await else {
         return;
     };
 
@@ -655,6 +657,20 @@ async fn kill_roles(ctx: &serenity::all::Context, user_id: UserId) {
         // Check if the role is a known special role
         !SPECIAL_MAPPING.iter().any(|(_, r)| r == role_id)
     });
+
+    roles.retain(|role_id| {
+        // Remove role if it's in ALL_MAPPER_ROLES
+        !UserMapHolder::all_roles().any(|r| r == *role_id)
+    });
+
+    let _ = member
+        .edit(
+            &ctx.http,
+            EditMember::new()
+                .roles(roles)
+                .audit_log_reason("Removing roles due to unverification."),
+        )
+        .await;
 }
 
 async fn maybe_update(
