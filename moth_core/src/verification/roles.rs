@@ -249,6 +249,7 @@ pub async fn update_roles(
 
     // assign the special roles they should have.
     let mut new_special = Vec::new();
+    let mut removed_special = Vec::new();
     for role_id in &matched_roles {
         // we use this to notify if we assigned a new special role.
         if !member.roles.contains(role_id) {
@@ -267,6 +268,19 @@ pub async fn update_roles(
     // Conditionally add the new role (only for update, not remove)
     if let Some(rank) = current_rank {
         roles.push(get_role_id_for_rank(metadata.gamemode(), rank));
+    }
+
+    // populate the removed_special variable
+    for (_, role_id) in SPECIAL_MAPPING {
+        if member.roles.contains(role_id) && !roles.contains(role_id) {
+            removed_special.push(*role_id);
+        }
+    }
+
+    for role_id in UserMapHolder::all_roles() {
+        if member.roles.contains(&role_id) && !roles.contains(&role_id) {
+            removed_special.push(role_id);
+        }
     }
 
     if *roles == *member.roles {
@@ -291,7 +305,7 @@ pub async fn update_roles(
             CreateEmbedAuthor::new(user.username.as_str())
                 .url(format!("https://osu.ppy.sh/u/{}", user.user_id)),
         )
-        .description("Assigned one or more roles to this user that may be considered special.")
+        .description("Assigned one or more special roles.")
         .field("Discord user", format!("<@{user_id}>"), true)
         .thumbnail(&user.avatar_url);
 
@@ -302,6 +316,30 @@ pub async fn update_roles(
             .send_message(
                 &ctx.http,
                 CreateMessage::new()
+                    // phil and me
+                    .content("<@101090238067113984> <@158567567487795200>")
+                    .embed(embed),
+            )
+            .await;
+    }
+
+    let embed = CreateEmbed::new()
+        .author(
+            CreateEmbedAuthor::new(user.username.as_str())
+                .url(format!("https://osu.ppy.sh/u/{}", user.user_id)),
+        )
+        .description("Removed one or more special roles.")
+        .field("Discord user", format!("<@{user_id}>"), true)
+        .thumbnail(&user.avatar_url);
+
+    for role in removed_special {
+        let embed = embed.clone().field("Role", format!("<@&{role}>"), true);
+
+        let _ = LOG_CHANNEL
+            .send_message(
+                &ctx.http,
+                CreateMessage::new()
+                    // phil and me
                     .content("<@101090238067113984> <@291089948709486593> <@158567567487795200>")
                     .embed(embed),
             )
