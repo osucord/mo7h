@@ -300,6 +300,19 @@ pub async fn update_roles(
         return false;
     }
 
+    let time = chrono::Utc::now().timestamp();
+    let _ = ctx
+        .data::<Data>()
+        .database
+        .update_last_updated(
+            user_id,
+            time,
+            Some(current_rank),
+            holder.bits(),
+            &matched_roles,
+        )
+        .await;
+
     let embed = CreateEmbed::new()
         .author(
             CreateEmbedAuthor::new(user.username.as_str())

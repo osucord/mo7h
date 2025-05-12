@@ -1,5 +1,5 @@
 use ::serenity::{
-    all::{GenericChannelId, MessageId, ReactionType},
+    all::{GenericChannelId, MessageId, ReactionType, RoleId},
     futures::FutureExt,
     small_fixed_array,
 };
@@ -876,6 +876,8 @@ impl Database {
         user_id: UserId,
         time: i64,
         rank: Option<Option<u32>>,
+        map_status: u8,
+        roles: &[RoleId],
     ) -> Result<(), Error> {
         if let Some(rank) = rank {
             query!(
