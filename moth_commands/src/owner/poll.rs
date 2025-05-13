@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use serenity::all::{
-    Channel, ChannelType, CreateMessage, CreatePoll, CreatePollAnswer, MessageId, ThreadId,
+    ChannelType, CreateMessage, CreatePoll, CreatePollAnswer, GuildChannel, MessageId, ThreadId,
 };
 
 use crate::{owner::owner, Context, Error};
@@ -13,18 +13,8 @@ use crate::{owner::owner, Context, Error};
     hide_in_help,
     guild_only
 )]
-pub async fn polls(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn polls(ctx: Context<'_>, channel: GuildChannel) -> Result<(), Error> {
     let guild_id = ctx.guild_id().unwrap();
-
-    let Some(channel) = ctx.channel().await else {
-        ctx.say("Cannot find channel in cache.").await?;
-        return Ok(());
-    };
-
-    let Channel::Guild(channel) = channel else {
-        ctx.say("Not a guild channel.").await?;
-        return Ok(());
-    };
 
     if channel.base.kind != ChannelType::Forum {
         ctx.say("Not a forum channel bestie.").await?;
