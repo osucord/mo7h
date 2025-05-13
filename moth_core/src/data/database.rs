@@ -881,18 +881,24 @@ impl Database {
     ) -> Result<(), Error> {
         if let Some(rank) = rank {
             query!(
-                "UPDATE verified_users SET last_updated = $2, rank = $3 WHERE user_id = $1",
+                "UPDATE verified_users SET last_updated = $2, rank = $3, map_status = $4, \
+                 verified_roles = $5 WHERE user_id = $1",
                 user_id.get() as i64,
                 time,
-                rank.map(|r| r as i32)
+                rank.map(|r| r as i32),
+                i16::from(map_status),
+                &roles.iter().map(|r| r.get() as i64).collect::<Vec<_>>(),
             )
             .execute(&self.db)
             .await?;
         } else {
             query!(
-                "UPDATE verified_users SET last_updated = $2 WHERE user_id = $1",
+                "UPDATE verified_users SET last_updated = $2, map_status = $3, verified_roles = \
+                 $4 WHERE user_id = $1",
                 user_id.get() as i64,
-                time
+                time,
+                i16::from(map_status),
+                &roles.iter().map(|r| r.get() as i64).collect::<Vec<_>>(),
             )
             .execute(&self.db)
             .await?;

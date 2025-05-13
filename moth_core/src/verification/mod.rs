@@ -201,18 +201,13 @@ pub async fn task(
                 let u = expired.into_inner();
                 if let Some(metadata) = keys.remove(&u) {
                     let osu = &data.web.osu;
-                    let (valid, rank) = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
+                    let valid = match osu.user(metadata.osu_id).mode(metadata.gamemode).await {
                         Ok(osu_user) => {
-                            let rank = osu_user.statistics.as_ref().expect("always sent").global_rank;
-                            // do not update rank if its not a new role.
-                            // but always if its "initial" or a gamemode switch.
-
-
-                            (maybe_update(&ctx, u, Some(&osu_user), Some(MetadataType::Full(&metadata))).await, Some(rank))
+                            maybe_update(&ctx, u, Some(&osu_user), Some(MetadataType::Full(&metadata))).await
                         }
                         Err(e) => {
                             dbg!(e);
-                            (false, None)
+                            false
                         }
                     };
 

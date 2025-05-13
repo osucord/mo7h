@@ -10,7 +10,12 @@ use serenity::all::{CreateEmbedAuthor, CreateMessage};
 // TODO: osu guild only
 
 /// Verify your account with this bot to gain rank roles.
-#[lumi::command(slash_command, guild_only)]
+#[lumi::command(
+    slash_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
     if let lumi::Context::Prefix(_) = ctx {
         ctx.say("Use </verify:1369818139793162369> to verify with me and gain a rank role!")
@@ -172,7 +177,13 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
 }
 
 /// Update your rank role automatically! Happens automatically daily.
-#[lumi::command(slash_command, prefix_command, guild_only)]
+#[lumi::command(
+    slash_command,
+    prefix_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
     ctx.defer().await?;
 
@@ -218,7 +229,13 @@ pub async fn update(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 /// Unlink your account from this server.
-#[lumi::command(slash_command, prefix_command, guild_only)]
+#[lumi::command(
+    slash_command,
+    prefix_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn unlink(ctx: Context<'_>) -> Result<(), Error> {
     let osu_id = ctx.data().database.unlink_user(ctx.author().id).await?;
 
@@ -281,7 +298,13 @@ impl From<GameModeChoice> for GameMode {
 }
 
 /// View an osu profile!
-#[lumi::command(slash_command, prefix_command, guild_only)]
+#[lumi::command(
+    slash_command,
+    prefix_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn osu(
     ctx: Context<'_>,
     // i wanted to use id, but idk what the fuck is going on with argument parsing behind the scenes that i have to use a full user and lazy?
@@ -344,7 +367,14 @@ pub async fn osu(
 }
 
 /// Change your default gamemode and role in the server.
-#[lumi::command(aliases("mode"), slash_command, prefix_command, guild_only)]
+#[lumi::command(
+    aliases("mode"),
+    slash_command,
+    prefix_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn gamemode(ctx: Context<'_>, gamemode: GameModeChoice) -> Result<(), Error> {
     if ctx
         .data()
@@ -375,7 +405,13 @@ pub async fn gamemode(ctx: Context<'_>, gamemode: GameModeChoice) -> Result<(), 
     Ok(())
 }
 
-#[lumi::command(slash_command, prefix_command, guild_only)]
+#[lumi::command(
+    slash_command,
+    prefix_command,
+    guild_only,
+    install_context = "Guild",
+    interaction_context = "Guild"
+)]
 pub async fn osuhelp(ctx: Context<'_>) -> Result<(), Error> {
     // TODO: inner command handler to get the commands on register/startup to prevent hardcoding.
 
