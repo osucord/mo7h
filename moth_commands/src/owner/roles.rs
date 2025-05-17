@@ -1,4 +1,4 @@
-use lumi::{serenity_prelude as serenity, StrArg};
+use lumi::serenity_prelude as serenity;
 use moth_core::emojis::{Checkmark, Question, X};
 use small_fixed_array::FixedString;
 
@@ -15,7 +15,7 @@ use crate::{Error, PrefixContext};
 pub async fn role_add(
     ctx: PrefixContext<'_>,
     #[lazy] user_id: Option<serenity::Member>,
-    role_name: StrArg<FixedString<u8>>,
+    #[rest] role_name: FixedString<u8>,
 ) -> Result<(), Error> {
     let user_id = user_id
         .map(|m| m.user.id)
@@ -25,7 +25,7 @@ pub async fn role_add(
         return Ok(());
     };
 
-    let role = match get_role(ctx, &role_name.0) {
+    let role = match get_role(ctx, &role_name) {
         Ok(x) => x,
         Err(e) => {
             ctx.say(e).await?;
@@ -169,7 +169,7 @@ fn find_unique_role(
 pub async fn role_remove(
     ctx: PrefixContext<'_>,
     #[lazy] user_id: Option<serenity::Member>,
-    role_name: StrArg<FixedString<u8>>,
+    #[rest] role_name: FixedString<u8>,
 ) -> Result<(), Error> {
     let user_id = user_id
         .map(|m| m.user.id)
@@ -179,7 +179,7 @@ pub async fn role_remove(
         return Ok(());
     };
 
-    let role = match get_role(ctx, &role_name.0) {
+    let role = match get_role(ctx, &role_name) {
         Ok(x) => x,
         Err(e) => {
             ctx.say(e).await?;
