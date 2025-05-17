@@ -40,7 +40,7 @@ pub async fn polls(ctx: Context<'_>, channel: GuildChannel) -> Result<(), Error>
 
     let archived_threads = channel
         .id
-        .get_archived_private_threads(ctx.http(), None, None)
+        .get_archived_public_threads(ctx.http(), None, None)
         .await?;
 
     if archived_threads.has_more {
