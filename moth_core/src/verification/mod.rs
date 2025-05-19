@@ -89,7 +89,7 @@ async fn auth(query: Result<Query<Params>, QueryRejection>, data: &Data) -> Resu
         .await
         .map_err(|_| ())?;
 
-    let user = osu.own_data().await.map_err(|_| ())?;
+    let user = osu.own_data().mode(GameMode::Osu).await.map_err(|_| ())?;
 
     let context = IndexContext {
         success: true,
