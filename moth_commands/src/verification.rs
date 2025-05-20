@@ -5,7 +5,7 @@ use lumi::CreateReply;
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
 use moth_core::verification::roles::{update_roles, MetadataType, LOG_CHANNEL};
 use rosu_v2::{model::GameMode, prelude::UserExtended};
-use serenity::all::{CreateEmbedAuthor, CreateMessage};
+use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
 
 // TODO: osu guild only
 
@@ -116,17 +116,21 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
         .await;
 
         let mentions = serenity::all::CreateAllowedMentions::new()
-            .all_users(false)
             .everyone(false)
-            .all_roles(false);
+            .all_roles(false)
+            .users(vec![
+                UserId::new(101090238067113984),
+                UserId::new(291089948709486593),
+                UserId::new(158567567487795200),
+            ]);
 
         let _ = LOG_CHANNEL
             .send_message(
                 ctx.http(),
                 CreateMessage::new()
                     .content(format!(
-                        "Unlinked <@{existing_user}> from {} (osu ID: {}) because they linked to \
-                         <@{}>",
+                        "<@101090238067113984><@291089948709486593><@158567567487795200> Unlinked \
+                         <@{existing_user}> from {} (osu ID: {}) because they linked to <@{}>",
                         user.username,
                         user.user_id,
                         ctx.author().id,
