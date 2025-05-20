@@ -29,6 +29,7 @@ pub async fn unverify_all(ctx: Context<'_>) -> Result<(), Error> {
         1136901818882994207,
         1011348779976372296,
         109630313449148416,
+        1353182867781455985,
     ];
 
     let users = {

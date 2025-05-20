@@ -615,7 +615,7 @@ async fn send_msgs(
 ) -> Result<(), Error> {
     let (post, announce) = {
         let status = &data.config.read().vcstatus;
-        (status.post_channel, status.announce_channel)
+        (status.post_channel.clone(), status.announce_channel)
     };
 
     let content = if blacklisted {
@@ -644,7 +644,10 @@ async fn send_msgs(
     }
 
     if let Some(post) = post {
-        post.widen().send_message(&ctx.http, msg).await?;
+        // you should use ExecuteWebhook but i don't want to make multiple messages.
+        ctx.http
+            .execute_webhook(post.0, post.1, &post.2, false, vec![], &msg)
+            .await?;
     }
 
     Ok(())

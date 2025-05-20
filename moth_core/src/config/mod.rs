@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use lumi::serenity_prelude::{ChannelId, GuildId};
 
 mod serialize;
+use serenity::all::{ThreadId, WebhookId};
 use serialize::{read_words_from_file, regex_patterns};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -74,7 +75,7 @@ impl MothConfig {
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct VCStatus {
     pub action: bool,
-    pub post_channel: Option<ChannelId>,
+    pub post_channel: Option<(WebhookId, Option<ThreadId>, String)>,
     pub blacklist_detection: bool,
     pub announce_channel: Option<ChannelId>,
     #[serde(with = "regex_patterns")]
