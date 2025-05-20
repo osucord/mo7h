@@ -162,20 +162,16 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             .task_sender
             .verify(ctx.author().id, user.user_id, GameMode::Osu)
             .await;
-
-        update_roles(
-            ctx.serenity_context(),
-            ctx.author().id,
-            Some(user),
-            Some(MetadataType::GameMode(gamemode.unwrap_or_default())),
-            "User has verified their osu account.",
-        )
-        .await;
     }
 
-    // i noticed in a refactor that i no longer have access to the right gamemode data (as i'm now passing data as is, instead of from database)
-    // this is fine, but now i'm saying to the user that they are verified in a case that they are already verified in, without changing anything.
-    // maybe i'll refactor to get the right gamemode by fetching the data prior, but right now i'm lazy.
+    update_roles(
+        ctx.serenity_context(),
+        ctx.author().id,
+        Some(user),
+        Some(MetadataType::GameMode(gamemode.unwrap_or_default())),
+        "User has verified their osu account.",
+    )
+    .await;
 
     Ok(())
 }
