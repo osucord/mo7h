@@ -9,14 +9,16 @@ use std::fmt::Write;
 #[lumi::command(
     slash_command,
     prefix_command,
-    install_context = "Guild|User",
+    install_context = "Guild",
     interaction_context = "Guild",
     category = "Utility",
     guild_only
 )]
 pub async fn stickers(ctx: Context<'_>) -> Result<(), Error> {
     let stickers = {
-        let guild = ctx.guild().unwrap();
+        let Some(guild) = ctx.guild() else {
+            return Ok(());
+        };
         guild.stickers.clone()
     };
 
