@@ -16,6 +16,7 @@
 
 use moth_core::data::structs::{Command, Context, Data, Error, PrefixContext};
 
+pub mod accela;
 pub mod lob;
 pub mod meta;
 pub mod moderation;
@@ -37,6 +38,7 @@ pub fn commands() -> Vec<Command> {
         .chain(starboard::commands())
         .chain(moderation::commands())
         .chain(verification::commands())
+        .chain(accela::commands())
         .collect()
 }
 

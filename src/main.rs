@@ -5,6 +5,7 @@ mod data;
 mod error;
 
 use lumi::serenity_prelude::{self as serenity};
+use moth_core::data::structs::Error;
 use std::{sync::Arc, time::Duration};
 
 #[tokio::main]
@@ -15,11 +16,10 @@ async fn main() {
     let options = lumi::FrameworkOptions {
         commands: moth_commands::commands(),
         prefix_options: lumi::PrefixFrameworkOptions {
-            prefix: Some("-".into()),
-            additional_prefixes: vec![lumi::Prefix::Literal("m!"), lumi::Prefix::Literal("m")],
             edit_tracker: Some(Arc::new(lumi::EditTracker::for_timespan(
                 Duration::from_secs(600),
             ))),
+            stripped_dynamic_prefix: Some(|_, msg, _| Box::pin(try_strip_prefix(msg))),
             ..Default::default()
         },
 
@@ -54,4 +54,41 @@ async fn main() {
         .unwrap();
 
     client.start().await.unwrap();
+}
+
+// i don't want Accelas commands using my norm prefix, this is jank.
+#[expect(clippy::unused_async)]
+async fn try_strip_prefix(msg: &serenity::Message) -> Result<Option<(&str, &str)>, Error> {
+    // accela stuff
+
+    let accela_prefix = ">>";
+    let accela_commands = ["playmore", "play", "p", "talkmore", "talk", "t"];
+
+    if let Some(stripped) = msg.content.strip_prefix(accela_prefix) {
+        if let Some(first_word) = stripped.split_whitespace().next() {
+            if accela_commands
+                .iter()
+                .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
+            {
+                return Ok(Some(msg.content.split_at(accela_prefix.len())));
+            }
+        }
+    }
+
+    let normal_prefixes = ["-", "m!", "m"];
+    for prefix in normal_prefixes {
+        if let Some(stripped) = msg.content.strip_prefix(prefix) {
+            if let Some(first_word) = stripped.split_whitespace().next() {
+                if accela_commands
+                    .iter()
+                    .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
+                {
+                    return Ok(None);
+                }
+                return Ok(Some(msg.content.split_at(prefix.len())));
+            }
+        }
+    }
+
+    Ok(None)
 }
