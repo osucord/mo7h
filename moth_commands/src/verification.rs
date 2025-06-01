@@ -14,9 +14,15 @@ use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
     slash_command,
     guild_only,
     install_context = "Guild",
-    interaction_context = "Guild"
+    interaction_context = "Guild|BotDm"
 )]
 pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
+    if ctx.guild_id().is_none() {
+        ctx.say("This is verification with the server, please use this command in the server!")
+            .await?;
+        return Ok(());
+    }
+
     if let lumi::Context::Prefix(_) = ctx {
         ctx.say("Use </verify:1369818139793162369> to verify with me and gain a rank role!")
             .await?;

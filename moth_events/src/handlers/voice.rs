@@ -21,6 +21,24 @@ pub async fn voice_state_update(
         } else if new.channel_id.is_none() {
             handle_leave(ctx, old, new).await?;
         }
+
+        if !old.self_video()
+            && new.self_video()
+            && new.guild_id == Some(serenity::GuildId::new(98226572468690944))
+            && ctx.data::<Data>().new_join_vc.contains_key(&new.user_id)
+        {
+            GenericChannelId::new(158484765136125952)
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new().content(format!(
+                        "<@158567567487795200> <@{}> turned on their camera in <#{}>!",
+                        new.user_id,
+                        new.channel_id.unwrap_or_default()
+                    )),
+                )
+                .await?;
+        }
+
         // third case where mutes and other changes happen.
     } else {
         handle_joins(ctx, new).await?;
