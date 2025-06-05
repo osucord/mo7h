@@ -5,13 +5,14 @@ use lumi::CreateReply;
 use ::serenity::all::{Colour, CreateEmbed, CreateEmbedFooter};
 use moth_core::verification::roles::{update_roles, MetadataType, LOG_CHANNEL};
 use rosu_v2::{model::GameMode, prelude::UserExtended};
-use serenity::all::{CreateEmbedAuthor, CreateMessage, UserId};
+use serenity::all::{CreateAllowedMentions, CreateEmbedAuthor, CreateMessage, UserId};
 
 // TODO: osu guild only
 
 /// Verify your account with this bot to gain rank roles.
 #[lumi::command(
     slash_command,
+    prefix_command,
     guild_only,
     install_context = "Guild",
     interaction_context = "Guild|BotDm"
@@ -80,6 +81,44 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                 .await?;
         }
     }
+
+    Ok(())
+}
+
+use crate::owner::owner;
+
+#[lumi::command(
+    rename = "force-verify",
+    aliases("force-verify"),
+    prefix_command,
+    guild_only,
+    category = "Owner - osu",
+    hide_in_help,
+    check = "owner"
+)]
+pub async fn verify_force(
+    ctx: Context<'_>,
+    user: serenity::all::User,
+    osu_user: u32,
+) -> Result<(), Error> {
+    ctx.data().database.verify_user(user.id, osu_user).await?;
+
+    ctx.data()
+        .web
+        .task_sender
+        .verify(user.id, osu_user, GameMode::Osu)
+        .await;
+
+    ctx.send(
+        CreateReply::new()
+            .content(format!(
+                "forcefully verified <@{}> as https://osu.ppy.sh/users/{osu_user}, you are \
+                 resposible to make sure this is a valid user.",
+                user.id
+            ))
+            .allowed_mentions(CreateAllowedMentions::new()),
+    )
+    .await?;
 
     Ok(())
 }
@@ -433,6 +472,14 @@ pub async fn osuhelp(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 #[must_use]
-pub fn commands() -> [crate::Command; 6] {
-    [verify(), update(), gamemode(), unlink(), osu(), osuhelp()]
+pub fn commands() -> [crate::Command; 7] {
+    [
+        verify(),
+        update(),
+        gamemode(),
+        unlink(),
+        osu(),
+        osuhelp(),
+        verify_force(),
+    ]
 }

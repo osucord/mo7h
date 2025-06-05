@@ -2,7 +2,11 @@ use crate::{Context, Error};
 use std::fmt::Write;
 
 use crate::utils::{get_cmd_name, handle_allow_cmd, handle_deny_cmd, CommandRestrictErr};
-use lumi::serenity_prelude::{self as serenity, User};
+use ::serenity::all::CreateAllowedMentions;
+use lumi::{
+    serenity_prelude::{self as serenity, User},
+    CreateReply,
+};
 
 // This entire module needs new command/function names.
 
@@ -81,7 +85,12 @@ pub async fn allow_owner_cmd(ctx: Context<'_>, user: User, cmd_name: String) -> 
         .to_string(),
     };
 
-    ctx.say(statement).await?;
+    ctx.send(
+        CreateReply::new()
+            .content(statement)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    )
+    .await?;
 
     Ok(())
 }
@@ -117,7 +126,12 @@ pub async fn deny_owner_cmd(ctx: Context<'_>, user: User, cmd_name: String) -> R
         .to_string(),
     };
 
-    ctx.say(statement).await?;
+    ctx.send(
+        CreateReply::new()
+            .content(statement)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    )
+    .await?;
 
     Ok(())
 }
@@ -284,7 +298,12 @@ pub async fn allow_owner(ctx: Context<'_>, user: User) -> Result<(), Error> {
         },
     };
 
-    ctx.say(statement).await?;
+    ctx.send(
+        CreateReply::new()
+            .content(statement)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    )
+    .await?;
     Ok(())
 }
 
@@ -319,7 +338,12 @@ pub async fn deny_owner(ctx: Context<'_>, user: User) -> Result<(), Error> {
         },
     };
 
-    ctx.say(statement).await?;
+    ctx.send(
+        CreateReply::new()
+            .content(statement)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    )
+    .await?;
     Ok(())
 }
 
