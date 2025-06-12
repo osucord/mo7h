@@ -308,8 +308,15 @@ pub async fn find_overwrite(
     Ok(())
 }
 
+#[lumi::command(prefix_command, hide_in_help, owners_only)]
+async fn testing(ctx: Context<'_>, user_id: UserId) -> Result<(), Error> {
+    moth_events::handlers::guilds::join_time(ctx.serenity_context(), &ctx.data(), user_id).await;
+
+    Ok(())
+}
+
 #[must_use]
-pub fn commands() -> [crate::Command; 7] {
+pub fn commands() -> [crate::Command; 8] {
     [
         uptime(),
         source(),
@@ -318,5 +325,6 @@ pub fn commands() -> [crate::Command; 7] {
         stats(),
         overwrite(),
         find_overwrite(),
+        testing(),
     ]
 }

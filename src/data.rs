@@ -1,7 +1,11 @@
 use dashmap::DashMap;
 use moth_core::data::structs::{Data, StarboardConfig, WebServer};
+use parking_lot::lock_api::Mutex;
 use serenity::all::{GenericChannelId, GuildId, RoleId};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    collections::VecDeque,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 pub async fn setup() -> Arc<Data> {
     let handler = moth_core::data::database::init_data().await;
@@ -19,6 +23,7 @@ pub async fn setup() -> Arc<Data> {
         starboard_config,
         ocr_engine: moth_core::ocr::OcrEngine::new(),
         new_join_vc: DashMap::default(),
+        osu_game_joins: Mutex::new(VecDeque::new()),
         web: WebServer::new().await,
     })
 }

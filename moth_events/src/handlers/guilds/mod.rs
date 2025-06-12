@@ -3,6 +3,8 @@ use std::{collections::HashSet, sync::Arc};
 mod member_roles;
 pub(crate) mod roles;
 
+use std::fmt::Write;
+
 use crate::{
     helper::{get_channel_name, get_guild_name_override, get_user},
     Data, Error,
@@ -14,7 +16,7 @@ use lumi::serenity_prelude::{
 
 use moth_ansi::{RESET, YELLOW};
 
-use ::serenity::all::GenericChannelId;
+use ::serenity::all::{CreateMessage, GenericChannelId, UserId};
 use moth_core::data::structs::Fuck;
 use serenity::model::guild::audit_log::Action;
 
@@ -61,6 +63,64 @@ pub async fn guild_member_addition(
         joined_user_id
     );
     Ok(())
+}
+
+pub async fn join_time(ctx: &serenity::Context, data: &Data, user_id: UserId) {
+    let mut groups = Vec::new();
+
+    {
+        let mut lock = data.osu_game_joins.lock();
+
+        if !lock.contains(&user_id) {
+            lock.push_back(user_id);
+        }
+
+        while lock.len() > 500 {
+            lock.pop_front();
+        }
+
+        let mut users_sorted = lock.iter().copied().collect::<Vec<_>>();
+        users_sorted.sort_by_key(|uid| uid.created_at().timestamp());
+
+        let timestamps: Vec<_> = users_sorted
+            .iter()
+            .map(|uid| uid.created_at().timestamp())
+            .collect();
+
+        let mut start = 0;
+        for end in 0..users_sorted.len() {
+            while timestamps[end] - timestamps[start] > 86400 {
+                start += 1;
+            }
+
+            if end - start + 1 > 1 {
+                groups.push(users_sorted[start..=end].to_vec());
+            }
+        }
+    }
+
+    let relevant_groups: Vec<_> = groups
+        .into_iter()
+        .filter(|group| group.contains(&user_id))
+        .collect();
+
+    for group in relevant_groups {
+        let mut string = String::new();
+
+        for uid in group {
+            write!(string, "<@{uid}> ").unwrap();
+        }
+
+        let _ = GenericChannelId::new(158484765136125952)
+            .send_message(
+                &ctx.http,
+                CreateMessage::new().content(format!(
+                    "<@158567567487795200> group detected with join date within 1 day of each \
+                     other: {string}(possible raid, please watch vcs!)"
+                )),
+            )
+            .await;
+    }
 }
 
 pub async fn guild_member_removal(

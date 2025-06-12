@@ -45,6 +45,20 @@ async fn main() {
 
     let data = data::setup().await;
 
+    /*     {
+        let mut joins = data.osu_game_joins.lock();
+        joins.push_back(UserId::new(111111111111111111));
+        joins.push_back(UserId::new(111111111111111112));
+        joins.push_back(UserId::new(111111111111111113));
+        joins.push_back(UserId::new(111111111111111114));
+        joins.push_back(UserId::new(111111111111111115));
+        joins.push_back(UserId::new(222222222222222221));
+        joins.push_back(UserId::new(222222222222222222));
+        joins.push_back(UserId::new(222222222222222223));
+        joins.push_back(UserId::new(222222222222222224));
+        joins.push_back(UserId::new(222222222222222225));
+    } */
+
     let mut client = serenity::Client::builder(token, intents)
         .framework(framework)
         .data(data)

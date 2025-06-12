@@ -1,9 +1,9 @@
 use dashmap::DashMap;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use rosu_v2::Osu;
 use serenity::all::{ChannelId, Member, RoleId, SecretString};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     time::Instant,
 };
 
@@ -39,6 +39,8 @@ pub struct Data {
     pub ocr_engine: crate::ocr::OcrEngine,
     /// ugh
     pub new_join_vc: DashMap<UserId, Fuck>,
+    /// ugh 2
+    pub osu_game_joins: Mutex<VecDeque<UserId>>,
     pub web: WebServer,
 }
 
