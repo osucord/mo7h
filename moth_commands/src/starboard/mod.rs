@@ -17,6 +17,8 @@ use std::{
     fmt::Write,
 };
 
+pub mod admin;
+
 #[lumi::command(
     prefix_command,
     hide_in_help,
@@ -296,12 +298,13 @@ impl std::fmt::Display for ScoreDisplay {
 }
 
 #[must_use]
-pub fn commands() -> [crate::Command; 4] {
+pub fn commands() -> [crate::Command; 5] {
     [
         list_queued(),
         add_starboard_override(),
         remove_starboard_override(),
         list_overrides(),
+        admin::starboard_admin(),
     ]
 }
 

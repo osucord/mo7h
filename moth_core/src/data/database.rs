@@ -601,6 +601,37 @@ impl Database {
         self.starboard.lock().being_handled.remove(message_id);
     }
 
+    pub async fn update_starboard_fields(&self, m: &StarboardMessage) -> Result<(), Error> {
+        sqlx::query!(
+            r#"
+        UPDATE starboard
+        SET
+            content = $1,
+            attachment_urls = $2,
+            starboard_status = $3
+        WHERE message_id = $4
+        "#,
+            m.content,
+            &m.attachment_urls,
+            m.starboard_status as _,
+            m.message_id.get() as i64,
+        )
+        .execute(&self.db)
+        .await?;
+
+        let mut lock = self.starboard.lock();
+        let index = lock
+            .messages
+            .iter()
+            .position(|cache| cache.message_id.0 == m.message_id.0);
+
+        if let Some(index) = index {
+            lock.messages.remove(index);
+        }
+
+        Ok(())
+    }
+
     pub async fn insert_starboard_msg(
         &self,
         m: StarboardMessage,
