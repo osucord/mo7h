@@ -10,6 +10,7 @@ use database::*;
 use moth_ansi::{HI_MAGENTA, RESET};
 
 use lumi::serenity_prelude::{self as serenity, Reaction};
+use small_fixed_array::FixedString;
 
 pub async fn reaction_add(
     ctx: &serenity::Context,
@@ -53,6 +54,35 @@ pub async fn reaction_add(
                 moth_starboard::starboard_add_handler(ctx, add_reaction, &data).await?;
             }
         }
+    }
+
+    match &add_reaction.emoji {
+        serenity::ReactionType::Custom {
+            id: _,
+            animated: _,
+            name,
+        } => {
+            if name.as_ref() != Some(&FixedString::from_static_trunc("giga_mpreg")) {
+                return Ok(());
+            }
+        }
+        _ => return Ok(()),
+    }
+
+    let is_james_author = {
+        let msgs = ctx.cache.channel_messages(add_reaction.channel_id);
+        if let Some(messages) = msgs {
+            messages
+                .iter()
+                .find(|m| m.id == add_reaction.message_id)
+                .is_some_and(|m| m.author.id == serenity::UserId::new(158567567487795200))
+        } else {
+            false
+        }
+    };
+
+    if is_james_author {
+        let _ = add_reaction.delete(&ctx.http).await;
     }
 
     Ok(())
