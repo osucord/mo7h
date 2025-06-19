@@ -94,7 +94,38 @@ pub async fn count_verified(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+#[lumi::command(
+    rename = "count-tagged",
+    prefix_command,
+    hide_in_help,
+    owners_only,
+    guild_only
+)]
+pub async fn count_tagged(ctx: Context<'_>) -> Result<(), Error> {
+    let count = {
+        let Some(cache) = ctx.guild() else {
+            ctx.say("Cannot find guild in cache.").await?;
+            return Ok(());
+        };
+
+        cache
+            .members
+            .iter()
+            .filter(|m| {
+                m.user
+                    .primary_guild
+                    .as_ref()
+                    .is_some_and(|g| g.identity_guild_id == Some(cache.id))
+            })
+            .count()
+    };
+
+    ctx.say(format!("{count} users have our tag.")).await?;
+
+    Ok(())
+}
+
 #[must_use]
-pub fn commands() -> [crate::Command; 2] {
-    [unverify_all(), count_verified()]
+pub fn commands() -> [crate::Command; 3] {
+    [unverify_all(), count_verified(), count_tagged()]
 }
