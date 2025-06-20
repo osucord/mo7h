@@ -138,7 +138,7 @@ pub async fn deny_owner_cmd(ctx: Context<'_>, user: User, cmd_name: String) -> R
 
 #[lumi::command(
     rename = "owner-overrides",
-    aliases("oo"),
+    aliases("ownero"),
     prefix_command,
     hide_in_help,
     category = "Owner - Overrides",
