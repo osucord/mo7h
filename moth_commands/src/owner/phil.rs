@@ -1,4 +1,5 @@
-use serenity::all::{EditMember, GuildMemberFlags};
+use lumi::CreateReply;
+use serenity::all::{CreateAttachment, EditMember, GuildMemberFlags};
 
 use crate::{Context, Error};
 
@@ -102,25 +103,48 @@ pub async fn count_verified(ctx: Context<'_>) -> Result<(), Error> {
     guild_only
 )]
 pub async fn count_tagged(ctx: Context<'_>) -> Result<(), Error> {
-    let count = {
+    use std::fmt::Write;
+
+    let (user_count, tagged_count, user_list, tagged_list) = {
         let Some(cache) = ctx.guild() else {
             ctx.say("Cannot find guild in cache.").await?;
             return Ok(());
         };
 
-        cache
-            .members
-            .iter()
-            .filter(|m| {
-                m.user
-                    .primary_guild
-                    .as_ref()
-                    .is_some_and(|g| g.identity_guild_id == Some(cache.id))
-            })
-            .count()
+        let mut user_count = 0;
+        let mut tagged_count = 0;
+        let mut user_list = String::new();
+        let mut tagged_list = String::new();
+
+        for member in &cache.members {
+            if let Some(primary) = &member.user.primary_guild {
+                if primary.identity_guild_id == Some(cache.id) {
+                    user_count += 1;
+                    writeln!(user_list, "{}", member.user.id)?;
+
+                    if primary.tag.is_some() {
+                        tagged_count += 1;
+                        writeln!(tagged_list, "{}", member.user.id)?;
+                    }
+                }
+            }
+        }
+
+        (user_count, tagged_count, user_list, tagged_list)
     };
 
-    ctx.say(format!("{count} users have our tag.")).await?;
+    ctx.send(
+        CreateReply::new()
+            .content(format!(
+                "{user_count} users represent us, {tagged_count} have our tag (in this server)."
+            ))
+            .attachment(CreateAttachment::bytes(user_list.into_bytes(), "users.txt"))
+            .attachment(CreateAttachment::bytes(
+                tagged_list.into_bytes(),
+                "tagged_users.txt",
+            )),
+    )
+    .await?;
 
     Ok(())
 }

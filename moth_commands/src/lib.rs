@@ -14,7 +14,7 @@
     clippy::unused_async, // fix.
 )]
 
-use moth_core::data::structs::{Command, Context, Data, Error, PrefixContext};
+use moth_core::data::structs::{ApplicationContext, Command, Context, Data, Error, PrefixContext};
 
 pub mod accela;
 pub mod lob;

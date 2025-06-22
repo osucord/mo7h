@@ -69,12 +69,9 @@ features = ["unstable"]
 #serenity = { git = 'https://github.com/jamesbt365/serenity', branch = 'next-downgrade-tokio-tungstenite' }
 
 [patch.'https://github.com/serenity-rs/serenity']
-serenity = { git = 'https://github.com/jamesbt365/serenity', branch = 'components-v2-withtag' }
+serenity = { git = 'https://github.com/jamesbt365/serenity', branch = 'components-v2-withtag-gradient' }
 
 
 
 [profile.release]
 strip = true
-opt-level = 3
-lto = true
-codegen-units = 1

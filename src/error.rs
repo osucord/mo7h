@@ -1,5 +1,5 @@
 use ::serenity::{all::CreateAllowedMentions, small_fixed_array::FixedString};
-use lumi::serenity_prelude as serenity;
+use lumi::{serenity_prelude as serenity, CreateReply};
 use moth_commands::utils::{handle_cooldown, prefix_bot_perms};
 use moth_core::data::structs::{Context, Data, Error, InvocationData};
 
@@ -10,6 +10,15 @@ async fn handle_command_error(ctx: Context<'_>, error: Error) {
             return;
         }
     }
+
+    // surely this isn't a bad idea?
+    let _ = ctx
+        .send(
+            CreateReply::new()
+                .content(error.to_string())
+                .ephemeral(true),
+        )
+        .await;
     println!("Error in command `{}`: {:?}", ctx.command().name, error);
 }
 
