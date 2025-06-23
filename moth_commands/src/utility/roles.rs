@@ -200,7 +200,7 @@ async fn create_role_and_insert(
             ctx.http(),
             EditRole::new()
                 .name(&*aformat!("TRANSCENDENT-GRADIENT-{reserved_id}"))
-                .position(poop_position - 1)
+                .position(poop_position)
                 .colours(dbg!(RoleColours {
                     primary_colour: colour_primary,
                     secondary_colour: colour_secondary,

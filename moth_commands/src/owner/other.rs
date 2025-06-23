@@ -1,10 +1,15 @@
-use ::serenity::all::{CreateAttachment, GenericChannelId};
+use ::serenity::all::{
+    CreateAllowedMentions, CreateAttachment, CreateComponent, CreateTextDisplay, GenericChannelId,
+    MessageFlags,
+};
 use lumi::{
     serenity_prelude::{
         self as serenity, Attachment, ChunkGuildFilter, Message, ReactionType, StickerId, UserId,
     },
     CreateReply,
 };
+use reqwest::{Client, Method};
+use serde_json::{Map, Value};
 
 use std::fmt::Write;
 
@@ -321,8 +326,138 @@ async fn members_dump(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+// TODO: parse this using proper arguments
+#[lumi::command(
+    prefix_command,
+    owners_only,
+    category = "Owner - Commands",
+    hide_in_help
+)]
+async fn http(ctx: Context<'_>, #[rest] input: String) -> Result<(), Error> {
+    // Split off everything after the first | (if any)
+    let split: Vec<&str> = input.splitn(2, '|').map(str::trim).collect();
+    let (method_and_route, rest) = match split.as_slice() {
+        [a] => (*a, ""),
+        [a, b] => (*a, *b),
+        _ => {
+            ctx.say("❌ Invalid input format").await?;
+            return Ok(());
+        }
+    };
+
+    let mut parts = method_and_route.split_whitespace();
+    let method_str = if let Some(m) = parts.next() {
+        m.to_uppercase()
+    } else {
+        ctx.say("❌ Missing HTTP method").await?;
+        return Ok(());
+    };
+    let Some(route) = parts.next() else {
+        ctx.say("❌ Missing route").await?;
+        return Ok(());
+    };
+
+    // Split optional body and headers
+    let mut rest_parts = rest.splitn(2, '|').map(str::trim);
+    let body_json = rest_parts.next().unwrap_or("");
+    let headers_json = rest_parts.next().unwrap_or("");
+
+    let method = match method_str.as_str() {
+        "GET" => Method::GET,
+        "POST" => Method::POST,
+        "PATCH" => Method::PATCH,
+        "DELETE" => Method::DELETE,
+        _ => {
+            ctx.say("❌ Invalid HTTP method").await?;
+            return Ok(());
+        }
+    };
+
+    let url = format!("https://discord.com/api/v10{route}");
+    let token = std::env::var("MOTH_TOKEN").expect("MOTH_TOKEN must be set");
+
+    let client = Client::new();
+    let mut request = client
+        .request(method, &url)
+        .header("Authorization", format!("Bot {token}"))
+        .header("Content-Type", "application/json");
+
+    // Add headers if any
+    if !headers_json.is_empty() {
+        match serde_json::from_str::<Map<String, Value>>(headers_json) {
+            Ok(map) => {
+                for (k, v) in map {
+                    if let Some(v_str) = v.as_str() {
+                        request = request.header(k, v_str);
+                    }
+                }
+            }
+            Err(e) => {
+                ctx.say(format!("❌ Invalid headers JSON: {e}")).await?;
+                return Ok(());
+            }
+        }
+    }
+
+    // Add body if any
+    if !body_json.is_empty() {
+        match serde_json::from_str::<Value>(body_json) {
+            Ok(json) => request = request.json(&json),
+            Err(e) => {
+                ctx.say(format!("❌ Invalid JSON body: {e}")).await?;
+                return Ok(());
+            }
+        }
+    }
+
+    let response = match request.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            ctx.say(format!("❌ HTTP request failed: {e}")).await?;
+            return Ok(());
+        }
+    };
+
+    let status = response.status();
+    let text = match response.text().await {
+        Ok(raw) => match serde_json::from_str::<serde_json::Value>(&raw) {
+            Ok(json) => {
+                if raw.is_empty() {
+                    String::from("{}")
+                } else {
+                    serde_json::to_string_pretty(&json).unwrap_or(raw)
+                }
+            }
+            Err(_) => raw,
+        },
+        Err(_) => "<no body>".into(),
+    };
+
+    let mut builder = CreateReply::new().allowed_mentions(CreateAllowedMentions::new());
+
+    let content = format!("**{method_str}** `{route}`\n**Status:** {status}\n```json\n{text}```");
+    if content.len() > 4000 {
+        ctx.send(
+            builder
+                .content(format!("**{method_str}** `{route}`\n**Status:** {status}"))
+                .attachment(CreateAttachment::bytes(text.into_bytes(), "output.json")),
+        )
+        .await?;
+    } else {
+        let components = [CreateComponent::TextDisplay(CreateTextDisplay::new(
+            content,
+        ))];
+        builder = builder
+            .components(&components)
+            .flags(MessageFlags::IS_COMPONENTS_V2);
+        ctx.send(builder).await?;
+    }
+
+    Ok(())
+}
+
 #[must_use]
-pub fn commands() -> [crate::Command; 10] {
+pub fn commands() -> [crate::Command; 11] {
     let say = lumi::Command {
         slash_action: say_slash().slash_action,
         parameters: say_slash().parameters,
@@ -340,5 +475,6 @@ pub fn commands() -> [crate::Command; 10] {
         sudo(),
         analyze(),
         members_dump(),
+        http(),
     ]
 }
