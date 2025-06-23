@@ -47,7 +47,9 @@ fn option_result_to_option<T, E>(opt: Option<Result<T, E>>) -> Result<Option<T>,
     category = "Roles",
     install_context = "Guild",
     interaction_context = "Guild",
-    required_bot_permissions = "MANAGE_ROLES"
+    required_bot_permissions = "MANAGE_ROLES",
+    // TODO: manual cooldowns this and exclude parse errors.
+    member_cooldown = "15"
 )]
 pub async fn set_gradient(
     ctx: ApplicationContext<'_>,
@@ -143,8 +145,10 @@ pub async fn set_gradient(
             if is_unset {
                 ctx.say("Unset your gradient colour.").await?;
             } else {
-                ctx.say("Your colour has been changed to your choice.")
-                    .await?;
+                ctx.say(&*aformat!(
+                    "Your colour on <@&{role_id}> has been changed to your choice."
+                ))
+                .await?;
             }
         } else {
             // remove deleted role from database
@@ -190,8 +194,6 @@ async fn create_role_and_insert(
         .map_err(|_| {
             "Could not reserve database information, please contact jamesbt365 about this."
         })?;
-    // i role the database engine
-    let reserved_id = reserved_id as i16;
 
     let role_id = ctx
         .guild_id()
@@ -199,7 +201,7 @@ async fn create_role_and_insert(
         .create_role(
             ctx.http(),
             EditRole::new()
-                .name(&*aformat!("TRANSCENDENT-GRADIENT-{reserved_id}"))
+                .name("TRANSCENDENT-GRADIENT")
                 .position(poop_position)
                 .colours(dbg!(RoleColours {
                     primary_colour: colour_primary,
@@ -214,7 +216,7 @@ async fn create_role_and_insert(
 
     sqlx::query!(
         "INSERT INTO transcendent_roles (id, user_id, role_id) VALUES ($1, $2, $3)",
-        reserved_id,
+        reserved_id as i16,
         ctx.author().id.get() as i64,
         role_id.get() as i64,
     )
@@ -233,7 +235,9 @@ async fn create_role_and_insert(
         .map_err(|_| "Could not assign role to you, I probably lack permissions!")?;
 
     let _ = ctx
-        .say("Your role has been created and assigned to you.")
+        .say(&*aformat!(
+            "Your role <@&{role_id}> has been created and assigned to you."
+        ))
         .await;
 
     Ok(())
