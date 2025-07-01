@@ -367,6 +367,7 @@ async fn http(ctx: Context<'_>, #[rest] input: String) -> Result<(), Error> {
         "POST" => Method::POST,
         "PATCH" => Method::PATCH,
         "DELETE" => Method::DELETE,
+        "PUT" => Method::PUT,
         _ => {
             ctx.say("❌ Invalid HTTP method").await?;
             return Ok(());
