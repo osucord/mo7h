@@ -13,6 +13,17 @@ pub async fn setup() -> Arc<Data> {
     let config = moth_core::config::MothConfig::load_config();
     let starboard_config = starboard_config();
 
+    let auto_poop_users = sqlx::query!("SELECT user_id FROM auto_pooped")
+        .fetch_all(&handler.db)
+        .await
+        .unwrap();
+
+    let auto_pooped = dashmap::DashSet::new();
+    for record in auto_poop_users {
+        #[expect(clippy::cast_sign_loss)]
+        auto_pooped.insert(serenity::all::UserId::new(record.user_id as u64));
+    }
+
     Arc::new(Data {
         has_started: AtomicBool::new(false),
         database: handler,
@@ -25,6 +36,7 @@ pub async fn setup() -> Arc<Data> {
         new_join_vc: DashMap::default(),
         osu_game_joins: Mutex::new(VecDeque::new()),
         web: WebServer::new().await,
+        auto_pooped,
     })
 }
 

@@ -62,10 +62,176 @@ pub async fn message(ctx: &serenity::Context, msg: &Message, data: Arc<Data>) ->
         handle_dm(ctx, msg),
         insert_message(&data.database, msg),
         moderate_invites(ctx, &data, msg),
-        responses::response_handler(ctx, msg)
+        auto_super_poop(ctx, msg),
+        responses::response_handler(ctx, msg),
     );
 
     Ok(())
+}
+
+async fn auto_super_poop(ctx: &serenity::Context, msg: &Message) -> Result<(), Error> {
+    let expected_guild = GuildId::new(98226572468690944);
+    let super_poop_role = serenity::RoleId::new(1384235804678684712);
+    let announce_thread = GenericChannelId::new(1390062742274310317);
+
+    // Early return if not the correct guild
+    if msg.guild_id != Some(expected_guild) {
+        return Ok(());
+    }
+
+    let send_message = "Seems like you have a horrible avatar decoration or nameplate! As such, \
+                        you have been awarded with a role that reflects your choice! Remove it to \
+                        remove this role";
+
+    let data = ctx.data_ref::<Data>();
+
+    // Check if user is marked as auto_pooped in memory
+    let auto_pooped = data.auto_pooped.contains(&msg.author.id);
+
+    // Check if user currently qualifies for the role (based on nameplate/avatar)
+    let should_be_pooped = should_be_pooped(msg);
+
+    // Check if user currently has the role
+    let has_super_poop_role = msg
+        .member
+        .as_ref()
+        .is_some_and(|member| member.roles.contains(&super_poop_role));
+
+    if auto_pooped {
+        // User is marked as auto_pooped
+        if should_be_pooped && !has_super_poop_role {
+            // Should have the role but doesn't - add it back
+            ctx.http
+                .add_member_role(
+                    expected_guild,
+                    msg.author.id,
+                    super_poop_role,
+                    Some("User contains shitty decor/nameplate but no longer had the role"),
+                )
+                .await?;
+
+            msg.channel_id
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new()
+                        .content(send_message)
+                        .reference_message(msg),
+                )
+                .await?;
+
+            announce_thread
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new().content(format!(
+                        "Added super poop to <@{}> because they should still be pooped, but no \
+                         longer had the role (rejoined?)",
+                        msg.author.id
+                    )),
+                )
+                .await?;
+        } else if !should_be_pooped && has_super_poop_role {
+            // Should NOT have the role but does - remove it and update DB/memory
+            ctx.http
+                .remove_member_role(
+                    expected_guild,
+                    msg.author.id,
+                    super_poop_role,
+                    Some("Member no longer has the shitty decor/nameplate"),
+                )
+                .await?;
+
+            sqlx::query!(
+                "DELETE FROM auto_pooped WHERE user_id = $1",
+                msg.author.id.get() as i64
+            )
+            .execute(&data.database.db)
+            .await?;
+
+            data.auto_pooped.remove(&msg.author.id);
+
+            announce_thread
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new().content(format!(
+                        "Removed super poop from <@{}> because they are no longer using the \
+                         decor/nameplate.",
+                        msg.author.id
+                    )),
+                )
+                .await?;
+        }
+    } else {
+        // User is NOT marked as auto_pooped
+
+        if should_be_pooped && !has_super_poop_role {
+            // user should be pooped, does not have the role.
+            sqlx::query!(
+                "INSERT INTO auto_pooped (user_id) VALUES ($1)",
+                msg.author.id.get() as i64
+            )
+            .execute(&data.database.db)
+            .await?;
+
+            data.auto_pooped.insert(msg.author.id);
+
+            ctx.http
+                .add_member_role(
+                    expected_guild,
+                    msg.author.id,
+                    super_poop_role,
+                    Some("User has shitty decor/nameplate."),
+                )
+                .await?;
+
+            msg.channel_id
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new()
+                        .content(send_message)
+                        .reference_message(msg),
+                )
+                .await?;
+
+            announce_thread
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new().content(format!(
+                        "Added super poop to <@{}> because they have a shitty decor/nameplate.",
+                        msg.author.id
+                    )),
+                )
+                .await?;
+        }
+        // the user either do have the role already, or shouldn't have the role, but *they weren't* done by the bot, so it doesn't matter.
+    }
+
+    Ok(())
+}
+
+fn should_be_pooped(msg: &Message) -> bool {
+    let decor_sku = serenity::SkuId::new(1387888352539312288);
+
+    if let Some(user_decor) = msg.author.avatar_decoration_data {
+        if user_decor.sku_id == decor_sku {
+            return true;
+        }
+    }
+    if let Some(nameplate) = msg.author.collectibles.as_ref().map(|c| &c.nameplate) {
+        #[expect(clippy::collapsible_match)]
+        if let Some(nameplate) = nameplate {
+            if &nameplate.asset == "nameplates/paper/skibidi_toilet/" {
+                return true;
+            }
+        }
+    }
+
+    if let Some(Some(member_decor)) = msg.member.as_ref().map(|m| m.avatar_decoration_data) {
+        if member_decor.sku_id == decor_sku {
+            return true;
+        }
+    }
+
+    false
 }
 
 pub async fn message_edit(

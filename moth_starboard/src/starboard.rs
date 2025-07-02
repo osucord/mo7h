@@ -458,25 +458,24 @@ fn starboard_embeds<'a>(
 
     let mut embeds = Vec::new();
     for attachment_url in &starboard_msg.attachment_urls {
-        if let Some(captures) = LINK_REGEX.captures(attachment_url) {
-            if let Some(extension) = captures.get(1) {
-                if matches!(extension.as_str(), "jpeg" | "jpg" | "png" | "webp" | "gif") {
-                    if embeds.len() == 4 {
-                        break;
-                    }
-
-                    if embeds.is_empty() {
-                        embeds.push(embed.clone().image(attachment_url));
-                        continue;
-                    }
-
-                    let embed = serenity::CreateEmbed::new()
-                        .url("https://osucord.moe")
-                        .image(attachment_url);
-
-                    embeds.push(embed);
-                }
+        if let Some(captures) = LINK_REGEX.captures(attachment_url)
+            && let Some(extension) = captures.get(1)
+            && matches!(extension.as_str(), "jpeg" | "jpg" | "png" | "webp" | "gif")
+        {
+            if embeds.len() == 4 {
+                break;
             }
+
+            if embeds.is_empty() {
+                embeds.push(embed.clone().image(attachment_url));
+                continue;
+            }
+
+            let embed = serenity::CreateEmbed::new()
+                .url("https://osucord.moe")
+                .image(attachment_url);
+
+            embeds.push(embed);
         }
     }
 

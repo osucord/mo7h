@@ -301,7 +301,9 @@ async fn analyze(ctx: Context<'_>, #[rest] msg: String) -> Result<(), Error> {
     hide_in_help,
     guild_only
 )]
-async fn members_dump(ctx: Context<'_>) -> Result<(), Error> {
+async fn members_dump(ctx: Context<'_>, full: Option<bool>) -> Result<(), Error> {
+    let full = full.unwrap_or(false);
+
     let mut writer = String::new();
 
     {
@@ -311,12 +313,16 @@ async fn members_dump(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         for member in &guild.members {
-            writeln!(
-                writer,
-                "{}: {:?}: {:?} (ID:{})",
-                member.user.name, member.user.global_name, member.nick, member.user.id
-            )
-            .unwrap();
+            if full {
+                writeln!(writer, "{member:?}").unwrap();
+            } else {
+                writeln!(
+                    writer,
+                    "{}: {:?}: {:?} (ID:{})",
+                    member.user.name, member.user.global_name, member.nick, member.user.id
+                )
+                .unwrap();
+            }
         }
     }
 

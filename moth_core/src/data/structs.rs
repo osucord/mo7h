@@ -43,6 +43,7 @@ pub struct Data {
     /// ugh 2
     pub osu_game_joins: Mutex<VecDeque<UserId>>,
     pub web: WebServer,
+    pub auto_pooped: dashmap::DashSet<UserId>,
 }
 
 pub struct WebServer {

@@ -324,10 +324,10 @@ impl Database {
             return true;
         }
 
-        if let Some(data) = self.owner_overwrites.owners_single.get(command) {
-            if data.value().contains(&user_id) {
-                return true;
-            }
+        if let Some(data) = self.owner_overwrites.owners_single.get(command)
+            && data.value().contains(&user_id)
+        {
+            return true;
         }
 
         false
@@ -354,10 +354,10 @@ impl Database {
         };
 
         {
-            if let Some(cmd_cache) = self.owner_overwrites.owners_single.get(command) {
-                if cmd_cache.contains(&user_id) {
-                    return Ok(true);
-                }
+            if let Some(cmd_cache) = self.owner_overwrites.owners_single.get(command)
+                && cmd_cache.contains(&user_id)
+            {
+                return Ok(true);
             }
         }
 

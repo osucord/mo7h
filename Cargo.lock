@@ -3326,7 +3326,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/jamesbt365/serenity?branch=components-v2-withtag-gradient#6f8b354cf900d87af6f7b529174b1f9f0be706a1"
+source = "git+https://github.com/jamesbt365/serenity?branch=components-v2-withtag-gradient-nameplates%2Fdecor#481d21ac058a20dd3bf4b4b21e9bec72f251e043"
 dependencies = [
  "aformat",
  "arrayvec",
