@@ -411,7 +411,10 @@ impl Database {
     }
 
     /// a version of `Self::get_messages` that will not insert if not present.
-    pub async fn get_message_dataless(&self, message_id: MessageId) -> Result<MessageData, Error> {
+    pub async fn get_message_dataless(
+        &self,
+        message_id: MessageId,
+    ) -> Result<MessageData, sqlx::Error> {
         if let Some(message) = self.messages.get(&message_id) {
             return Ok(*message);
         }
@@ -658,12 +661,12 @@ impl Database {
                 s.reply_username
             FROM starboard s
             JOIN users u ON s.user_id = u.id
-            JOIN messages m ON s.message_id = m.message_id
+            JOIN messages m ON s.message_id = m.id
             JOIN channels c ON m.channel_id = c.id
 
-            LEFT JOIN messages rm ON s.reply_message_id = rm.message_id
+            LEFT JOIN messages rm ON s.reply_message_id = rm.id
             LEFT JOIN users ru ON rm.user_id = ru.id
-            LEFT JOIN messages sm ON s.starboard_message_id = sm.message_id
+            LEFT JOIN messages sm ON s.starboard_message_id = sm.id
             LEFT JOIN channels sc ON sm.channel_id = sc.id
 
             WHERE s.message_id = $1
@@ -883,17 +886,17 @@ impl Database {
                 s.reply_username
             FROM starboard s
             JOIN users u ON s.user_id = u.id
-            JOIN messages m ON s.message_id = m.message_id
+            JOIN messages m ON s.message_id = m.id
             JOIN channels c ON m.channel_id = c.id
 
-            LEFT JOIN messages rm ON s.reply_message_id = rm.message_id
+            LEFT JOIN messages rm ON s.reply_message_id = rm.id
             LEFT JOIN users ru ON rm.user_id = ru.id
-            LEFT JOIN messages sm ON s.starboard_message_id = sm.message_id
+            LEFT JOIN messages sm ON s.starboard_message_id = sm.id
             LEFT JOIN channels sc ON sm.channel_id = sc.id
 
             WHERE s.starboard_message_id = $1
             "#,
-            starboard_msg_id.get() as i64
+            self.get_message_dataless(starboard_msg_id).await?.id
         )
         .fetch_one(&self.db)
         .await
@@ -1006,12 +1009,12 @@ impl Database {
                 s.reply_username
             FROM starboard s
             JOIN users u ON s.user_id = u.id
-            JOIN messages m ON s.message_id = m.message_id
+            JOIN messages m ON s.message_id = m.id
             JOIN channels c ON m.channel_id = c.id
 
-            LEFT JOIN messages rm ON s.reply_message_id = rm.message_id
+            LEFT JOIN messages rm ON s.reply_message_id = rm.id
             LEFT JOIN users ru ON rm.user_id = ru.id
-            LEFT JOIN messages sm ON s.starboard_message_id = sm.message_id
+            LEFT JOIN messages sm ON s.starboard_message_id = sm.id
             JOIN channels sc ON sm.channel_id = sc.id
             "#,
         )
