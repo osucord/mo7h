@@ -1147,7 +1147,7 @@ impl Database {
     pub async fn verify_user(&self, user_id: UserId, osu_id: u32) -> Result<(), Error> {
         let now = Utc::now();
 
-        self.get_user(user_id).await?;
+        let user = self.get_user(user_id).await?;
 
         query!(
             r#"
@@ -1159,7 +1159,7 @@ impl Database {
                 is_active = EXCLUDED.is_active,
                 gamemode = 0
             "#,
-            &self.get_user(user_id).await?.id,
+            user.id,
             osu_id as i32,
             now,
             true,
@@ -1174,7 +1174,7 @@ impl Database {
     pub async fn unlink_user(&self, user_id: UserId) -> Result<u32, Error> {
         let record = query!(
             "DELETE FROM verified_users WHERE user_id = $1 RETURNING osu_id",
-            user_id.get() as i64
+            &self.get_user(user_id).await?.id,
         )
         .fetch_optional(&self.db)
         .await?;
@@ -1185,7 +1185,7 @@ impl Database {
     pub async fn get_osu_user_id(&self, user_id: UserId) -> Option<(u32, GameMode)> {
         let query = query!(
             "SELECT osu_id, gamemode FROM verified_users WHERE user_id = $1",
-            user_id.get() as i64
+            &self.get_user(user_id).await.ok()?.id,
         )
         .fetch_one(&self.db)
         .await
@@ -1198,7 +1198,7 @@ impl Database {
         query!(
             "UPDATE verified_users SET gamemode = $1 WHERE user_id = $2",
             gamemode as i16,
-            user_id.get() as i64
+            &self.get_user(user_id).await?.id,
         )
         .execute(&self.db)
         .await?;
@@ -1208,15 +1208,17 @@ impl Database {
 
     pub async fn get_existing_links(&self, osu_id: u32) -> Result<Vec<UserId>, sqlx::Error> {
         sqlx::query_scalar!(
-            "SELECT user_id FROM verified_users WHERE osu_id = $1",
+            "SELECT u.user_id FROM verified_users vu JOIN users u ON vu.user_id = u.id WHERE \
+             vu.osu_id = $1",
             osu_id as i32
         )
         .fetch_all(&self.db)
         .await
-        .map(|u| {
-            u.into_iter()
-                .map(|u| UserId::new(u as u64))
-                .collect::<Vec<UserId>>()
+        .map(|user_ids| {
+            user_ids
+                .into_iter()
+                .map(|id| UserId::new(id as u64))
+                .collect()
         })
     }
 
