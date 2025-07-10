@@ -42,4 +42,5 @@ pub async fn admin(ctx: Context<'_>) -> Result<bool, Error> {
     ctx.data()
         .database
         .check_admin(ctx.author().id, &ctx.command().name)
+        .await
 }

@@ -523,18 +523,16 @@ impl Database {
     }
 
     /// To be called in a function that uses the admin check.
-    pub fn check_admin(&self, user_id: UserId, command: &str) -> Result<bool, Error> {
-        if let Some(cached) = self.users.get(&user_id) {
-            if cached.is_admin() {
-                return Ok(true);
-            }
+    pub async fn check_admin(&self, user_id: UserId, command: &str) -> Result<bool, Error> {
+        let user = self.get_user(user_id).await?;
 
-            if let Some(commands) = &cached.allowed_admin_commands {
-                return Ok(commands.iter().any(|c| c.as_str() == command));
-            }
+        if user.is_admin() {
+            return Ok(true);
         }
 
-        // TODO: query database
+        if let Some(commands) = &user.allowed_admin_commands {
+            return Ok(commands.iter().any(|c| c.as_str() == command));
+        }
 
         Ok(false)
     }
