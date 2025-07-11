@@ -196,9 +196,21 @@ pub struct StarboardHandler {
 
 impl StarboardHandler {
     async fn new(db: &PgPool) -> Result<Self, Error> {
-        let results = sqlx::query!("SELECT * FROM starboard_overrides")
-            .fetch_all(db)
-            .await?;
+        let results = sqlx::query!(
+            r#"
+            SELECT
+                starboard_overrides.star_count,
+                channels.channel_id
+            FROM
+                starboard_overrides
+            JOIN
+                channels
+            ON
+                starboard_overrides.channel_id = channels.id
+            "#
+        )
+        .fetch_all(db)
+        .await?;
 
         let mut overrides = HashMap::with_capacity(results.len());
         for result in results {
