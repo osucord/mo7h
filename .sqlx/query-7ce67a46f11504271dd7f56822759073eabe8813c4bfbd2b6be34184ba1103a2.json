@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM verified_users WHERE user_id = $1 RETURNING osu_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7ce67a46f11504271dd7f56822759073eabe8813c4bfbd2b6be34184ba1103a2"
+}

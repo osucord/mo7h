@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO users (user_id, allowed_admin_commands)\n                VALUES ($1, ARRAY[$2])\n                ON CONFLICT (user_id)\n                DO UPDATE SET allowed_admin_commands =\n                    CASE\n                        WHEN NOT $2 = ANY(users.allowed_admin_commands) THEN\n                            array_append(users.allowed_admin_commands, $2)\n                        ELSE users.allowed_admin_commands\n                    END\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e1809ed6ea17564bf3a0162161d1dad64438552e0f7c8b99800ba7c0b9b99f8b"
+}

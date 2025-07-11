@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT osu_id, gamemode FROM verified_users WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gamemode",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b92ffdc501b3a7320a15a584561a12c98acce63835111880c93daed56089431b"
+}

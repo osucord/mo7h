@@ -5,9 +5,9 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Int8",
+        "Timestamptz",
         "Int2",
-        "Int8"
+        "Int4"
       ]
     },
     "nullable": []

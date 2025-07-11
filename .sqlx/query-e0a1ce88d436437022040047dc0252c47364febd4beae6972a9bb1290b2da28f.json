@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE starboard SET starboard_status = $1 WHERE starboard_message_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "starboard_status",
+            "kind": {
+              "Enum": [
+                "InReview",
+                "Denied",
+                "Accepted"
+              ]
+            }
+          }
+        },
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0a1ce88d436437022040047dc0252c47364febd4beae6972a9bb1290b2da28f"
+}

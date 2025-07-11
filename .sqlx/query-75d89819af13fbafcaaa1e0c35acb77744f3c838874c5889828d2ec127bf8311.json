@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                u.user_id,\n                vu.osu_id,\n                vu.last_updated,\n                vu.rank,\n                vu.gamemode,\n                vu.map_status,\n                vu.verified_roles\n            FROM\n                verified_users vu\n            JOIN\n                users u ON vu.user_id = u.id\n            WHERE\n                vu.is_active = TRUE\n            ORDER BY\n                vu.last_updated ASC\n            LIMIT 100\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "osu_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_updated",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "rank",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "gamemode",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 5,
+        "name": "map_status",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 6,
+        "name": "verified_roles",
+        "type_info": "Int8Array"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "75d89819af13fbafcaaa1e0c35acb77744f3c838874c5889828d2ec127bf8311"
+}

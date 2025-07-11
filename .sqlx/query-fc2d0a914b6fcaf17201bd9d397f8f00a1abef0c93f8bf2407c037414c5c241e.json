@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input_rows(channel_id, guild_id) AS (\n                VALUES ($1::bigint, $2::int)\n            ),\n            ins AS (\n                INSERT INTO channels (channel_id, guild_id)\n                SELECT channel_id, guild_id FROM input_rows\n                ON CONFLICT (channel_id) DO NOTHING\n                RETURNING id\n            )\n            SELECT id AS \"id!\" FROM ins\n            UNION ALL\n            SELECT c.id AS \"id!\" FROM channels c\n            JOIN input_rows i USING (channel_id);\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fc2d0a914b6fcaf17201bd9d397f8f00a1abef0c93f8bf2407c037414c5c241e"
+}

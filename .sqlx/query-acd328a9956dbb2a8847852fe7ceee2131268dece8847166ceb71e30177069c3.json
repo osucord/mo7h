@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO emote_usage (message_id, emote_id, user_id, guild_id,\n                 used_at, usage_type) VALUES ($1, $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        {
+          "Custom": {
+            "name": "emoteusagetype",
+            "kind": {
+              "Enum": [
+                "message",
+                "reaction"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "acd328a9956dbb2a8847852fe7ceee2131268dece8847166ceb71e30177069c3"
+}

@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO users (user_id, is_bot_banned)\n                VALUES ($1, $2)\n                ON CONFLICT (user_id)\n                DO UPDATE SET is_bot_banned = EXCLUDED.is_bot_banned\n                RETURNING id, is_bot_admin, allowed_admin_commands\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "is_bot_admin",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "allowed_admin_commands",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "e3608d7f94481766bcf551c70ec5804a045b313f67ac9a1098f89e1c74c93f15"
+}

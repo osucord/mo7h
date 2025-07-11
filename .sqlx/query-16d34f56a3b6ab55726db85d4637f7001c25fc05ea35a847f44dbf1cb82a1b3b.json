@@ -6,7 +6,7 @@
       {
         "ordinal": 0,
         "name": "user_id",
-        "type_info": "Int8"
+        "type_info": "Int4"
       },
       {
         "ordinal": 1,
@@ -17,19 +17,18 @@
     "parameters": {
       "Left": [
         "Text",
-        "Int8",
+        "Int4",
         {
           "Custom": {
-            "name": "_emoteusagetype",
+            "name": "emoteusagetype[]",
             "kind": {
               "Array": {
                 "Custom": {
                   "name": "emoteusagetype",
                   "kind": {
                     "Enum": [
-                      "Message",
-                      "ReactionAdd",
-                      "ReactionRemove"
+                      "message",
+                      "reaction"
                     ]
                   }
                 }

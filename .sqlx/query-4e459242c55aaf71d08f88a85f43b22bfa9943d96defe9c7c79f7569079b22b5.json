@@ -1,0 +1,123 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                s.id,\n                u.user_id,\n                s.username,\n                s.avatar_url,\n                s.content,\n                c.channel_id,\n                m.message_id,\n                s.attachment_urls,\n                s.star_count,\n                sm.message_id AS starboard_message_id,\n                sc.channel_id AS starboard_message_channel,\n                s.starboard_status as \"starboard_status: StarboardStatus\",\n                rm.message_id AS \"reply_message_id?\",\n                ru.user_id AS \"reply_user_id?\",\n                s.forwarded,\n                s.reply_username\n            FROM starboard s\n            JOIN users u ON s.user_id = u.id\n            JOIN messages m ON s.message_id = m.id\n            JOIN channels c ON m.channel_id = c.id\n\n            LEFT JOIN messages rm ON s.reply_message_id = rm.id\n            LEFT JOIN users ru ON rm.user_id = ru.id\n            LEFT JOIN messages sm ON s.starboard_message_id = sm.id\n            LEFT JOIN channels sc ON sm.channel_id = sc.id\n\n            WHERE s.message_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "attachment_urls",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 8,
+        "name": "star_count",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 9,
+        "name": "starboard_message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "starboard_message_channel",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "starboard_status: StarboardStatus",
+        "type_info": {
+          "Custom": {
+            "name": "starboard_status",
+            "kind": {
+              "Enum": [
+                "InReview",
+                "Denied",
+                "Accepted"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "reply_message_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "reply_user_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "forwarded",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "reply_username",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "4e459242c55aaf71d08f88a85f43b22bfa9943d96defe9c7c79f7569079b22b5"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input_rows(user_id) AS (\n                VALUES ($1::bigint)\n            ),\n            ins AS (\n                INSERT INTO users (user_id)\n                SELECT user_id FROM input_rows\n                ON CONFLICT (user_id) DO NOTHING\n                RETURNING\n                    id,\n                    is_bot_banned,\n                    is_bot_admin,\n                    allowed_admin_commands\n            )\n            SELECT\n                id AS \"id!\",\n                is_bot_banned AS \"is_bot_banned!\",\n                is_bot_admin AS \"is_bot_admin!\",\n                allowed_admin_commands\n            FROM ins\n            UNION ALL\n            SELECT\n                u.id AS \"id!\",\n                u.is_bot_banned AS \"is_bot_banned!\",\n                u.is_bot_admin AS \"is_bot_admin!\",\n                u.allowed_admin_commands\n            FROM users u\n            JOIN input_rows i USING (user_id);\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "is_bot_banned!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "is_bot_admin!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "allowed_admin_commands",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d27f77be6902a49b98e7bf6cbdd716e218bb8a65a61b916af142d209f6557b0d"
+}

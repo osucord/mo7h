@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM transcendent_roles WHERE role_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "22e0094c0dbbebf97e2a0a2ce1044e1b7a3413fd1690314895825127f251d987"
+}

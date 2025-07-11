@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO starboard_overrides (channel_id, star_count)\n            VALUES ($1, $2)\n            ON CONFLICT (channel_id) DO UPDATE\n            SET star_count = EXCLUDED.star_count\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b9c60ba723a39092788b44321021e3ac98a1c29c4a5827e7f120bb00a612824c"
+}

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE verified_users SET last_updated = $2, map_status = $3, verified_roles = $4 WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "Int2",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "390aaa93739f8bf224f9bde118c79a58823c515cd9333dabf5778e5e9b0d61e0"
+}
