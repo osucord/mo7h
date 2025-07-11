@@ -669,7 +669,7 @@ impl Database {
 
             WHERE s.message_id = $1
             "#,
-            msg_id.get() as i64
+            self.get_message_dataless(msg_id).await?.id
         )
         .fetch_one(&self.db)
         .await
