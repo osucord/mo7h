@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use crate::{Data, Error};
 use ::serenity::all::CreateInteractionResponseMessage;
 use lumi::serenity_prelude as serenity;
-use moth_core::data::database::StarboardStatus;
+use moth_core::data::database::starboard::StarboardStatus;
 
 use super::starboard::starboard_message;
 
