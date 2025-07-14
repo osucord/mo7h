@@ -195,8 +195,9 @@ async fn auto_super_poop(ctx: &serenity::Context, msg: &Message) -> Result<(), E
                 .send_message(
                     &ctx.http,
                     CreateMessage::new().content(format!(
-                        "Added super poop to <@{}> because they have a shitty decor/nameplate.",
-                        msg.author.id
+                        "Added super poop to <@{}> because they have a shitty decor/nameplate. {}",
+                        msg.author.id,
+                        msg.link()
                     )),
                 )
                 .await?;
