@@ -1,5 +1,5 @@
-use ::serenity::all::{CreateEmbed, CreateMessage, EditMessage, GenericChannelId};
-use chrono::{Duration, Utc};
+use ::serenity::all::{CreateMessage, GenericChannelId};
+
 use std::borrow::Cow;
 
 use crate::{
@@ -97,8 +97,6 @@ async fn handle_switch(
         );
     }
 
-    maybe_handle(ctx, new).await?;
-
     Ok(())
 }
 async fn handle_leave(
@@ -157,84 +155,6 @@ async fn handle_joins(ctx: &serenity::Context, new: &VoiceState) -> Result<(), E
         println!(
             "{GREEN}[{guild_name}] {user_name} joined {channel_name} (ID:{channel_id}){RESET}"
         );
-    }
-
-    maybe_handle(ctx, new).await?;
-
-    Ok(())
-}
-
-#[expect(clippy::similar_names)]
-pub async fn maybe_handle(ctx: &serenity::Context, new: &VoiceState) -> Result<(), Error> {
-    let data = ctx.data::<Data>();
-
-    let to_handle = {
-        let voice_fuckery = data.new_join_vc.get(&new.user_id);
-        if let Some(voice) = voice_fuckery {
-            if voice.cleared {
-                None
-            } else {
-                let current_time = Utc::now();
-                let timestamp = voice.member.joined_at.unwrap_or_default();
-                let time_diff = current_time.signed_duration_since(*timestamp);
-
-                if time_diff <= Duration::hours(1) {
-                    Some(voice.clone())
-                } else {
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    };
-
-    let Some(to_handle) = to_handle else {
-        return Ok(());
-    };
-
-    let new_message = if let Some(announce) = to_handle.announce_msg {
-        let now = Utc::now();
-        *announce.created_at() < now - Duration::minutes(30)
-    } else {
-        true
-    };
-
-    let content = format!("<@158567567487795200>: <@{}>", to_handle.member.user.id);
-
-    let embed = CreateEmbed::new()
-        .title(to_handle.member.user.name.clone())
-        .description("New join joined VC!")
-        .field(
-            "Joined at",
-            format!(
-                "<t:{}:R>",
-                to_handle.member.joined_at.unwrap_or_default().timestamp()
-            ),
-            true,
-        )
-        .field("VC", format!("<#{}>", new.channel_id.unwrap()), true)
-        .thumbnail(to_handle.member.user.face());
-
-    if new_message {
-        let val = GenericChannelId::new(158484765136125952)
-            .send_message(
-                &ctx.http,
-                CreateMessage::new().content(content).embed(embed),
-            )
-            .await?;
-
-        if let Some(mut m) = data.new_join_vc.get_mut(&new.user_id) {
-            m.announce_msg = Some(val.id);
-        };
-    } else {
-        let _ = GenericChannelId::new(158484765136125952)
-            .edit_message(
-                &ctx.http,
-                to_handle.announce_msg.unwrap(),
-                EditMessage::new().embed(embed).content(content),
-            )
-            .await;
     }
 
     Ok(())
