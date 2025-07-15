@@ -1,11 +1,13 @@
 use regex::Regex;
+use serenity::all::{EmojiId, ReactionType};
+use small_fixed_array::FixedString;
 use sqlx::query;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Error;
 use lumi::serenity_prelude::Message;
-use moth_core::data::database::{Database, EmoteUsageType};
+use moth_core::data::structs::Data;
 
 pub static EMOJI_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<(a)?:([a-zA-Z0-9_]{2,32}):(\d{1,20})>").unwrap());
@@ -16,8 +18,8 @@ fn get_emojis_in_msg(msg: &str) -> impl Iterator<Item = &str> {
         .take(3)
 }
 
-pub(super) async fn insert_message(database: &Database, message: &Message) -> Result<(), Error> {
-    let mut transaction = database.db.begin().await?;
+pub(super) async fn insert_message(data: &Data, message: &Message) -> Result<(), Error> {
+    let mut transaction = data.database.db.begin().await?;
 
     let mut unicode_emojis = get_emojis_in_msg(&message.content).peekable();
     let has_unicode_emoji = unicode_emojis.peek().is_some();
@@ -29,7 +31,8 @@ pub(super) async fn insert_message(database: &Database, message: &Message) -> Re
         return Ok(());
     }
 
-    let message_data = database
+    let message_data = data
+        .database
         .get_message(
             message.id,
             message.channel_id,
@@ -70,81 +73,27 @@ pub(super) async fn insert_message(database: &Database, message: &Message) -> Re
                 println!("Failed to parse id for custom emote: {}", &captures[3]);
                 continue;
             };
-            // &captures[2] is name.
-            // &captures[3] is id.
-            let id = query!(
-                r#"
-                    WITH input_rows(emote_name, discord_id) AS (
-                        VALUES ($1::text, $2::bigint)
-                    ),
-                    ins AS (
-                        INSERT INTO emotes (emote_name, discord_id)
-                        SELECT emote_name, discord_id FROM input_rows
-                        ON CONFLICT (emote_name, discord_id) DO NOTHING
-                        RETURNING id
-                    )
-                    SELECT id AS "id!" FROM ins
-                    UNION ALL
-                    SELECT e.id AS "id!" FROM emotes e
-                    JOIN input_rows i
-                    ON e.emote_name = i.emote_name AND e.discord_id = i.discord_id;
-                    "#,
-                &captures[2],
-                *id as i64
-            )
-            .fetch_one(&mut *transaction)
-            .await?;
 
-            query!(
-                "INSERT INTO emote_usage (message_id, emote_id, user_id, guild_id,
-                 used_at, usage_type) VALUES ($1, $2, $3, $4, $5, $6)",
-                message_data.id,
-                id.id,
-                message_data.user_id,
-                message_data.guild_id,
-                *message.id.created_at(),
-                EmoteUsageType::Message as _,
-            )
-            .execute(&mut *transaction)
-            .await?;
+            let reaction_type = ReactionType::Custom {
+                animated: captures.get(1).is_some(),
+                id: EmojiId::new(*id),
+                name: Some(FixedString::from_str_trunc(&captures[2])),
+            };
+
+            data.emote_processor
+                .sender
+                .message_add(message, reaction_type)
+                .await;
         }
 
         for emoji in unicode_emojis {
-            let id = query!(
-                r#"
-                WITH input_rows(emote_name) AS (
-                    VALUES ($1::text)
-                ),
-                ins AS (
-                    INSERT INTO emotes (emote_name, discord_id)
-                    SELECT emote_name, NULL FROM input_rows
-                    ON CONFLICT (emote_name) WHERE discord_id IS NULL DO NOTHING
-                    RETURNING id
+            data.emote_processor
+                .sender
+                .message_add(
+                    message,
+                    ReactionType::Unicode(FixedString::from_str_trunc(emoji)),
                 )
-                SELECT id AS "id!" FROM ins
-                UNION ALL
-                SELECT e.id AS "id!"
-                FROM emotes e
-                JOIN input_rows i ON e.emote_name = i.emote_name
-                WHERE e.discord_id IS NULL;
-                "#,
-                emoji
-            )
-            .fetch_one(&mut *transaction)
-            .await?;
-
-            query!(
-                "INSERT INTO emote_usage (message_id, emote_id, user_id, guild_id,
-                 used_at, usage_type) VALUES ($1, $2, $3, $4, $5, $6)",
-                message_data.id,
-                id.id,
-                message_data.user_id,
-                message_data.guild_id,
-                *message.id.created_at(),
-                EmoteUsageType::Message as _,
-            )
-            .execute(&mut *transaction)
-            .await?;
+                .await;
         }
 
         transaction.commit().await?;

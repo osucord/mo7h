@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO users (user_id, is_bot_admin)\n                VALUES ($1, $2)\n                ON CONFLICT (user_id)\n                DO UPDATE SET is_bot_admin = EXCLUDED.is_bot_admin\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6fa8f550e78e1b387d3d1351ad3353234308374eaf1e339ea42c10cf56acbf10"
+}

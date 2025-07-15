@@ -5,6 +5,7 @@ use rosu_v2::Osu;
 use serenity::all::{ChannelId, Member, RoleId, SecretString};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
     time::Instant,
 };
 
@@ -13,6 +14,7 @@ use lumi::serenity_prelude::{GenericChannelId, GuildId, MessageId, UserId};
 use std::sync::atomic::AtomicBool;
 
 use crate::{
+    data::database::reactions::EmoteProcessor,
     standby::AuthenticationStandby,
     verification::{sender::VerificationSender, task},
 };
@@ -30,7 +32,7 @@ pub struct Data {
     /// Time the bot started.
     pub time_started: std::time::Instant,
     /// Wrapper for the bots database with helper functions.
-    pub database: crate::data::database::Database,
+    pub database: Arc<crate::data::database::Database>,
     /// Http client.
     pub reqwest: reqwest::Client,
     /// Bot/Server Configuration
@@ -45,6 +47,7 @@ pub struct Data {
     pub osu_game_joins: Mutex<VecDeque<UserId>>,
     pub web: WebServer,
     pub auto_pooped: dashmap::DashSet<UserId>,
+    pub emote_processor: EmoteProcessor,
 }
 
 pub struct WebServer {

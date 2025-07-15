@@ -59,7 +59,7 @@ pub async fn message(ctx: &serenity::Context, msg: &Message, data: Arc<Data>) ->
     let _ = tokio::join!(
         check_event_dm_regex(ctx, msg, &guild_name, patterns.as_deref()),
         handle_dm(ctx, msg),
-        insert_message(&data.database, msg),
+        insert_message(&data, msg),
         // TODO: check why this broke
         moderate_invites(ctx, &data, msg),
         auto_super_poop(ctx, msg),

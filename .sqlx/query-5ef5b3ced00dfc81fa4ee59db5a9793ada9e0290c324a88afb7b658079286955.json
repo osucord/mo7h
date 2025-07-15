@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH input_rows(emote_name) AS (\n                    VALUES ($1::text)\n                ),\n                ins AS (\n                    INSERT INTO emotes (emote_name)\n                    SELECT emote_name FROM input_rows\n                    ON CONFLICT (emote_name) WHERE discord_id IS NULL DO NOTHING\n                    RETURNING id\n                )\n                SELECT id AS \"id!\" FROM ins\n                UNION ALL\n                SELECT e.id AS \"id!\"\n                FROM emotes e\n                JOIN input_rows i ON e.emote_name = i.emote_name\n                WHERE e.discord_id IS NULL;\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5ef5b3ced00dfc81fa4ee59db5a9793ada9e0290c324a88afb7b658079286955"
+}

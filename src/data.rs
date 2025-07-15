@@ -1,5 +1,8 @@
 use dashmap::DashMap;
-use moth_core::data::structs::{Data, StarboardConfig, WebServer};
+use moth_core::data::{
+    database::reactions::EmoteProcessor,
+    structs::{Data, StarboardConfig, WebServer},
+};
 use parking_lot::lock_api::Mutex;
 use serenity::all::{GenericChannelId, GuildId, RoleId};
 use std::{
@@ -26,7 +29,7 @@ pub async fn setup() -> Arc<Data> {
 
     Arc::new(Data {
         has_started: AtomicBool::new(false),
-        database: handler,
+        database: Arc::new(handler),
         time_started: std::time::Instant::now(),
         reqwest: reqwest::Client::new(),
         config: parking_lot::RwLock::new(config),
@@ -37,6 +40,7 @@ pub async fn setup() -> Arc<Data> {
         osu_game_joins: Mutex::new(VecDeque::new()),
         web: WebServer::new().await,
         auto_pooped,
+        emote_processor: EmoteProcessor::default(),
     })
 }
 

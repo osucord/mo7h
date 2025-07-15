@@ -3,10 +3,6 @@ use std::sync::Arc;
 use crate::helper::{get_channel_name, get_guild_name_override, get_user};
 use crate::{Data, Error};
 
-mod database;
-
-use database::*;
-
 use moth_ansi::{HI_MAGENTA, RESET};
 
 use lumi::serenity_prelude::{self as serenity, Reaction};
@@ -46,7 +42,7 @@ pub async fn reaction_add(
         guild_name, channel_name, user_name, add_reaction.emoji
     );
 
-    let _ = insert_addition(ctx, user_id, add_reaction).await;
+    data.emote_processor.sender.reaction_add(add_reaction).await;
 
     if add_reaction.guild_id == Some(data.starboard_config.guild_id) {
         if let serenity::ReactionType::Unicode(ref unicode) = add_reaction.emoji {
@@ -118,7 +114,10 @@ pub async fn reaction_remove(
         guild_name, channel_name, user_name, removed_reaction.emoji
     );
 
-    /*     insert_removal(&data.database, guild_id.unwrap(), user_id, removed_reaction).await?; */
+    data.emote_processor
+        .sender
+        .reaction_remove(removed_reaction)
+        .await;
 
     if removed_reaction.guild_id == Some(data.starboard_config.guild_id) {
         if let serenity::ReactionType::Unicode(ref unicode) = removed_reaction.emoji {

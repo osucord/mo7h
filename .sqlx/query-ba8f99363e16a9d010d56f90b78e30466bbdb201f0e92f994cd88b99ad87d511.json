@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                starboard_overrides.star_count,\n                channels.channel_id\n            FROM\n                starboard_overrides\n            JOIN\n                channels\n            ON\n                starboard_overrides.channel_id = channels.id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "star_count",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ba8f99363e16a9d010d56f90b78e30466bbdb201f0e92f994cd88b99ad87d511"
+}

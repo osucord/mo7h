@@ -14,6 +14,7 @@ pub mod starboard;
 pub mod wrappers;
 pub use starboard::*;
 pub use wrappers::*;
+pub mod reactions;
 
 pub async fn init_data() -> Database {
     let database_url =
@@ -50,11 +51,12 @@ pub async fn init_data() -> Database {
         channels: DashMap::new(),
         guilds: DashMap::new(),
         messages: DashMap::new(),
+        emotes: DashMap::new(),
     }
 }
 
 /// Custom type.
-#[derive(Debug, Clone, sqlx::Type, PartialEq)]
+#[derive(Debug, Clone, Copy, sqlx::Type, PartialEq, Eq, Hash)]
 #[sqlx(type_name = "emoteusagetype", rename_all = "lowercase")]
 pub enum EmoteUsageType {
     Message,
@@ -68,6 +70,7 @@ pub struct Database {
     guilds: DashMap<serenity::GuildId, i32>,
     channels: DashMap<serenity::GenericChannelId, (i32, Option<i32>)>,
     messages: DashMap<serenity::MessageId, MessageData>,
+    emotes: DashMap<serenity::ReactionType, i32>,
     pub starboard: Mutex<starboard::StarboardHandler>,
     // TODO: try and keep private and rewrite them when i eventually redo my users and starboard part.
     /// Runtime caches for dm activity.
@@ -135,7 +138,10 @@ pub struct Checks {
 }
 
 impl Database {
-    pub async fn get_user(&self, user_id: serenity::UserId) -> Result<Arc<ApplicationUser>, Error> {
+    pub async fn get_user(
+        &self,
+        user_id: serenity::UserId,
+    ) -> Result<Arc<ApplicationUser>, sqlx::Error> {
         if let Some(user) = self.users.get(&user_id) {
             return Ok(user);
         }
@@ -143,7 +149,10 @@ impl Database {
         self.insert_user_(user_id).await.map(Arc::new)
     }
 
-    pub async fn insert_user_(&self, user_id: serenity::UserId) -> Result<ApplicationUser, Error> {
+    pub async fn insert_user_(
+        &self,
+        user_id: serenity::UserId,
+    ) -> Result<ApplicationUser, sqlx::Error> {
         let row = query!(
             r#"
             WITH input_rows(user_id) AS (
@@ -198,7 +207,7 @@ impl Database {
         &self,
         channel_id: serenity::GenericChannelId,
         guild_id: Option<serenity::GuildId>,
-    ) -> Result<(i32, Option<i32>), Error> {
+    ) -> Result<(i32, Option<i32>), sqlx::Error> {
         if let Some(id) = self.channels.get(&channel_id) {
             let value = id.value();
             return Ok((value.0, value.1));
@@ -212,7 +221,7 @@ impl Database {
         &self,
         channel_id: serenity::GenericChannelId,
         guild_id: Option<serenity::GuildId>,
-    ) -> Result<(i32, Option<i32>), Error> {
+    ) -> Result<(i32, Option<i32>), sqlx::Error> {
         let inner_guild_id = if let Some(guild_id) = guild_id {
             Some(self.get_guild(guild_id).await?)
         } else {
@@ -250,7 +259,7 @@ impl Database {
         channel_id: serenity::GenericChannelId,
         guild_id: Option<serenity::GuildId>,
         user_id: UserId,
-    ) -> Result<MessageData, Error> {
+    ) -> Result<MessageData, sqlx::Error> {
         if let Some(message) = self.messages.get(&message_id) {
             return Ok(*message);
         }
@@ -320,7 +329,7 @@ impl Database {
     }
 
     /// Gets the guild from the database, or inserts it if it doesn't exist, returning the inner id value.
-    pub async fn get_guild(&self, guild_id: serenity::GuildId) -> Result<i32, Error> {
+    pub async fn get_guild(&self, guild_id: serenity::GuildId) -> Result<i32, sqlx::Error> {
         if let Some(id) = self.guilds.get(&guild_id) {
             return Ok(*id.value());
         }
@@ -328,7 +337,7 @@ impl Database {
         self.insert_guild_(guild_id).await
     }
 
-    async fn insert_guild_(&self, guild_id: serenity::GuildId) -> Result<i32, Error> {
+    async fn insert_guild_(&self, guild_id: serenity::GuildId) -> Result<i32, sqlx::Error> {
         let row = query!(
             r#"
             WITH input_rows(guild_id) AS (
@@ -436,11 +445,11 @@ impl Database {
 
             sqlx::query!(
                 r#"
-            INSERT INTO users (user_id, is_bot_admin)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id)
-            DO UPDATE SET is_bot_admin = EXCLUDED.is_bot_admin
-            "#,
+                INSERT INTO users (user_id, is_bot_admin)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id)
+                DO UPDATE SET is_bot_admin = EXCLUDED.is_bot_admin
+                "#,
                 user_id.get() as i64,
                 enable
             )

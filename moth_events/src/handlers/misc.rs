@@ -40,4 +40,7 @@ async fn finalize_start(ctx: &serenity::Context) {
     let data_clone = data.clone();
     tokio::spawn(moth_core::verification::run(data_clone));
     data.web.start_background_task(ctx.clone()).await;
+    data.emote_processor
+        .start_background_task(Arc::clone(&data.database))
+        .await;
 }
