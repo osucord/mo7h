@@ -168,8 +168,9 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
                 ctx.http(),
                 CreateMessage::new()
                     .content(format!(
-                        "<@101090238067113984><@291089948709486593><@158567567487795200> Unlinked \
-                         <@{existing_user}> from {} (osu ID: {}) because they linked to <@{}>",
+                        "<@101090238067113984> <@291089948709486593> <@158567567487795200> \
+                         Unlinked <@{existing_user}> from {} (osu ID: {}) because they linked to \
+                         <@{}>",
                         user.username,
                         user.user_id,
                         ctx.author().id,
@@ -188,6 +189,22 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
         (already_verified, Some(gamemode))
     } else {
         (false, None)
+    };
+
+    let user = if already_verified {
+        if Some(user.mode) == gamemode {
+            user
+        } else {
+            // patch fix for using the wrong rank.
+            &ctx.data()
+                .web
+                .osu
+                .user(user.user_id)
+                .mode(gamemode.unwrap_or_default())
+                .await?
+        }
+    } else {
+        user
     };
 
     if !already_verified {
