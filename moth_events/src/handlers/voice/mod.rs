@@ -1,14 +1,12 @@
-use ::serenity::all::{CreateMessage, GenericChannelId};
-
 use std::borrow::Cow;
 
 use crate::{
-    helper::{get_guild_name_override, get_user},
     Error,
+    helper::{get_guild_name_override, get_user},
 };
 use lumi::serenity_prelude::{self as serenity, VoiceState};
 use moth_ansi::{GREEN, RESET};
-use moth_core::data::structs::Data;
+pub mod private;
 
 pub async fn voice_state_update(
     ctx: &serenity::Context,
@@ -20,23 +18,6 @@ pub async fn voice_state_update(
             handle_switch(ctx, old, new).await?;
         } else if new.channel_id.is_none() {
             handle_leave(ctx, old, new).await?;
-        }
-
-        if !old.self_video()
-            && new.self_video()
-            && new.guild_id == Some(serenity::GuildId::new(98226572468690944))
-            && ctx.data::<Data>().new_join_vc.contains_key(&new.user_id)
-        {
-            GenericChannelId::new(158484765136125952)
-                .send_message(
-                    &ctx.http,
-                    CreateMessage::new().content(format!(
-                        "<@158567567487795200> <@{}> turned on their camera in <#{}>!",
-                        new.user_id,
-                        new.channel_id.unwrap_or_default()
-                    )),
-                )
-                .await?;
         }
 
         // third case where mutes and other changes happen.
@@ -59,10 +40,14 @@ async fn handle_switch(
     // Ditto.
     let new_id = new.channel_id.unwrap();
 
-    let user_name = match get_user(ctx, new.guild_id.unwrap(), new.user_id).await {
-        Some(user) => user.tag(),
-        None => return Ok(()),
+    let Some(user) = get_user(ctx, new.guild_id.unwrap(), new.user_id).await else {
+        return Ok(());
     };
+
+    // TODO: refactor to call this function in the base of voice state update
+    private::check_channel(ctx, Some(old), new, Some(&user)).await;
+
+    let user_name = user.tag();
 
     {
         let guild_cache = ctx.cache.guild(new.guild_id.unwrap());
@@ -112,6 +97,8 @@ async fn handle_leave(
         None => return Ok(()),
     };
 
+    private::check_channel(ctx, Some(old), new, None).await;
+
     let guild_cache = ctx.cache.guild(new.guild_id.unwrap());
     // will fire real error in the future.
     let Some(guild_cache) = guild_cache else {
@@ -133,10 +120,14 @@ async fn handle_joins(ctx: &serenity::Context, new: &VoiceState) -> Result<(), E
 
     // unwrapping the guild should be fine here unless the discord api is being funky
     // they are joining, so a guild_id is present.
-    let user_name = match get_user(ctx, new.guild_id.unwrap(), new.user_id).await {
-        Some(user) => user.tag(),
-        None => return Ok(()),
+    let Some(user) = get_user(ctx, new.guild_id.unwrap(), new.user_id).await else {
+        return Ok(());
     };
+
+    // TODO: refactor to call this function in the base of voice state update
+    private::check_channel(ctx, None, new, Some(&user)).await;
+
+    let user_name = user.tag();
 
     {
         let guild_cache = ctx.cache.guild(new.guild_id.unwrap());

@@ -117,15 +117,15 @@ pub async fn count_tagged(ctx: Context<'_>) -> Result<(), Error> {
         let mut tagged_list = String::new();
 
         for member in &cache.members {
-            if let Some(primary) = &member.user.primary_guild {
-                if primary.identity_guild_id == Some(cache.id) {
-                    user_count += 1;
-                    writeln!(user_list, "{}", member.user.id)?;
+            if let Some(primary) = &member.user.primary_guild
+                && primary.identity_guild_id == Some(cache.id)
+            {
+                user_count += 1;
+                writeln!(user_list, "{}", member.user.id)?;
 
-                    if primary.tag.is_some() {
-                        tagged_count += 1;
-                        writeln!(tagged_list, "{}", member.user.id)?;
-                    }
+                if primary.tag.is_some() {
+                    tagged_count += 1;
+                    writeln!(tagged_list, "{}", member.user.id)?;
                 }
             }
         }

@@ -2088,6 +2088,7 @@ dependencies = [
 name = "moth_core"
 version = "0.2.0"
 dependencies = [
+ "aformat",
  "axum",
  "base64",
  "bitflags 2.9.1",
@@ -3369,7 +3370,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/jamesbt365/serenity?branch=components-v2-withtag-gradient-nameplates%2Fdecor#481d21ac058a20dd3bf4b4b21e9bec72f251e043"
+source = "git+https://github.com/jamesbt365/serenity?branch=components-v2-withtag-gradient-nameplates%2Fdecor-resolved#96477749b0430987a85cca0c549bec190d999dea"
 dependencies = [
  "aformat",
  "arrayvec",

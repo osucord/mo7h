@@ -44,12 +44,11 @@ pub async fn reaction_add(
 
     data.emote_processor.sender.reaction_add(add_reaction).await;
 
-    if add_reaction.guild_id == Some(data.starboard_config.guild_id) {
-        if let serenity::ReactionType::Unicode(ref unicode) = add_reaction.emoji {
-            if unicode == &data.starboard_config.star_emoji {
-                moth_starboard::starboard_add_handler(ctx, add_reaction, &data).await?;
-            }
-        }
+    if add_reaction.guild_id == Some(data.starboard_config.guild_id)
+        && let serenity::ReactionType::Unicode(ref unicode) = add_reaction.emoji
+        && unicode == &data.starboard_config.star_emoji
+    {
+        moth_starboard::starboard_add_handler(ctx, add_reaction, &data).await?;
     }
 
     match &add_reaction.emoji {
@@ -119,13 +118,11 @@ pub async fn reaction_remove(
         .reaction_remove(removed_reaction)
         .await;
 
-    if removed_reaction.guild_id == Some(data.starboard_config.guild_id) {
-        if let serenity::ReactionType::Unicode(ref unicode) = removed_reaction.emoji {
-            if unicode == &data.starboard_config.star_emoji {
-                moth_starboard::starboard_remove_handler(ctx, removed_reaction, &data).await?;
-            }
-        }
+    if removed_reaction.guild_id == Some(data.starboard_config.guild_id)
+        && let serenity::ReactionType::Unicode(ref unicode) = removed_reaction.emoji
+        && unicode == &data.starboard_config.star_emoji
+    {
+        moth_starboard::starboard_remove_handler(ctx, removed_reaction, &data).await?;
     }
-
     Ok(())
 }

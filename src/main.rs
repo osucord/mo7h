@@ -61,11 +61,26 @@ async fn main() {
 
     let mut client = serenity::Client::builder(token, intents)
         .framework(framework)
-        .data(data)
+        .data(data.clone())
         .cache_settings(settings)
         .event_handler(moth_events::Handler)
         .await
         .unwrap();
+
+    let shutdown_trigger = client.shard_manager.get_shutdown_trigger();
+    tokio::spawn(async move {
+        wait_until_shutdown().await;
+
+        let data = data.clone();
+
+        tokio::join!(
+            data.web.task_sender.shutdown(),
+            data.private_vc.sender.shutdown(),
+            data.emote_processor.sender.shutdown(),
+        );
+
+        shutdown_trigger();
+    });
 
     client.start().await.unwrap();
 }
@@ -78,31 +93,45 @@ async fn try_strip_prefix(msg: &serenity::Message) -> Result<Option<(&str, &str)
     let accela_prefix = ">>";
     let accela_commands = ["playmore", "play", "p", "talkmore", "talk", "t"];
 
-    if let Some(stripped) = msg.content.strip_prefix(accela_prefix) {
-        if let Some(first_word) = stripped.split_whitespace().next() {
-            if accela_commands
-                .iter()
-                .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
-            {
-                return Ok(Some(msg.content.split_at(accela_prefix.len())));
-            }
-        }
+    if let Some(stripped) = msg.content.strip_prefix(accela_prefix)
+        && let Some(first_word) = stripped.split_whitespace().next()
+        && accela_commands
+            .iter()
+            .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
+    {
+        return Ok(Some(msg.content.split_at(accela_prefix.len())));
     }
 
     let normal_prefixes = ["-", "m!", "m"];
     for prefix in normal_prefixes {
-        if let Some(stripped) = msg.content.strip_prefix(prefix) {
-            if let Some(first_word) = stripped.split_whitespace().next() {
-                if accela_commands
-                    .iter()
-                    .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
-                {
-                    return Ok(None);
-                }
-                return Ok(Some(msg.content.split_at(prefix.len())));
+        if let Some(stripped) = msg.content.strip_prefix(prefix)
+            && let Some(first_word) = stripped.split_whitespace().next()
+        {
+            if accela_commands
+                .iter()
+                .any(|cmd| cmd.eq_ignore_ascii_case(first_word))
+            {
+                return Ok(None);
             }
+            return Ok(Some(msg.content.split_at(prefix.len())));
         }
     }
 
     Ok(None)
+}
+
+async fn wait_until_shutdown() {
+    use tokio::signal::unix as signal;
+
+    let [mut s1, mut s2, mut s3] = [
+        signal::signal(signal::SignalKind::hangup()).unwrap(),
+        signal::signal(signal::SignalKind::interrupt()).unwrap(),
+        signal::signal(signal::SignalKind::terminate()).unwrap(),
+    ];
+
+    tokio::select!(
+        v = s1.recv() => v.unwrap(),
+        v = s2.recv() => v.unwrap(),
+        v = s3.recv() => v.unwrap(),
+    );
 }

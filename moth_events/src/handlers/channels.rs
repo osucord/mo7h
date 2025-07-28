@@ -310,10 +310,10 @@ pub async fn thread_create(
     let parent_channel_name =
         get_channel_name(ctx, Some(thread.base.guild_id), thread.parent_id.widen()).await;
 
-    if let Some(newly_created) = newly_created {
-        if !newly_created {
-            return Ok(());
-        }
+    if let Some(newly_created) = newly_created
+        && !newly_created
+    {
+        return Ok(());
     }
 
     println!(
@@ -517,13 +517,12 @@ pub async fn add(
 
         let options = &log.options.as_ref().unwrap();
 
-        if let Some(str) = &options.status {
-            if str == status.as_deref().unwrap_or_default()
-                && options.channel_id == Some(id.widen())
-            {
-                user_id = Some(log.user_id.unwrap());
-                break;
-            }
+        if let Some(str) = &options.status
+            && str == status.as_deref().unwrap_or_default()
+            && options.channel_id == Some(id.widen())
+        {
+            user_id = Some(log.user_id.unwrap());
+            break;
         }
     }
 
@@ -634,13 +633,11 @@ async fn send_msgs(
         .embed(embed)
         .allowed_mentions(mentions);
 
-    if blacklisted {
-        if let Some(announce) = announce {
-            announce
-                .widen()
-                .send_message(&ctx.http, msg.clone())
-                .await?;
-        }
+    if blacklisted && let Some(announce) = announce {
+        announce
+            .widen()
+            .send_message(&ctx.http, msg.clone())
+            .await?;
     }
 
     if let Some(post) = post {

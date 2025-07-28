@@ -211,24 +211,23 @@ async fn auto_super_poop(ctx: &serenity::Context, msg: &Message) -> Result<(), E
 fn should_be_pooped(msg: &Message) -> bool {
     let decor_sku = serenity::SkuId::new(1387888352539312288);
 
-    if let Some(user_decor) = msg.author.avatar_decoration_data {
-        if user_decor.sku_id == decor_sku {
-            return true;
-        }
-    }
-    if let Some(nameplate) = msg.author.collectibles.as_ref().map(|c| &c.nameplate) {
-        #[expect(clippy::collapsible_match)]
-        if let Some(nameplate) = nameplate {
-            if &nameplate.asset == "nameplates/paper/skibidi_toilet/" {
-                return true;
-            }
-        }
+    if let Some(user_decor) = msg.author.avatar_decoration_data
+        && user_decor.sku_id == decor_sku
+    {
+        return true;
     }
 
-    if let Some(Some(member_decor)) = msg.member.as_ref().map(|m| m.avatar_decoration_data) {
-        if member_decor.sku_id == decor_sku {
-            return true;
-        }
+    if let Some(nameplate) = msg.author.collectibles.as_ref().map(|c| &c.nameplate)
+        && let Some(nameplate) = nameplate
+        && &nameplate.asset == "nameplates/paper/skibidi_toilet/"
+    {
+        return true;
+    }
+
+    if let Some(Some(member_decor)) = msg.member.as_ref().map(|m| m.avatar_decoration_data)
+        && member_decor.sku_id == decor_sku
+    {
+        return true;
     }
 
     false
@@ -322,25 +321,22 @@ pub async fn message_delete(
         );
     }
 
-    if let Some(guild_id) = guild_id {
-        if let Some(user) =
+    if let Some(guild_id) = guild_id
+        && let Some(user) =
             anti_delete::anti_delete(ctx, &data, channel_id, guild_id, deleted_message_id).await
-        {
-            if guild_id.get() == 98226572468690944 {
-                let embed = CreateEmbed::new()
-                    .title("Possible mass deletion?")
-                    .description(format!("Triggered on <@{user}>"))
-                    .footer(CreateEmbedFooter::new(
-                        "This doesn't check my own database or oinks database.",
-                    ));
-                let builder = CreateMessage::new().embed(embed);
-                let _ = GenericChannelId::new(1284217769423798282)
-                    .send_message(&ctx.http, builder)
-                    .await;
-            }
-        }
+        && guild_id.get() == 98226572468690944
+    {
+        let embed = CreateEmbed::new()
+            .title("Possible mass deletion?")
+            .description(format!("Triggered on <@{user}>"))
+            .footer(CreateEmbedFooter::new(
+                "This doesn't check my own database or oinks database.",
+            ));
+        let builder = CreateMessage::new().embed(embed);
+        let _ = GenericChannelId::new(1284217769423798282)
+            .send_message(&ctx.http, builder)
+            .await;
     }
-
     Ok(())
 }
 
@@ -508,10 +504,10 @@ pub fn author_string(ctx: &serenity::Context, msg: &Message) -> String {
             // Skip this role if this role in iteration has:
             // - a position less than the recorded highest
             // - a position equal to the recorded, but a higher ID
-            if let Some(r) = highest {
-                if role.position < r.position || (role.position == r.position && role.id > r.id) {
-                    continue;
-                }
+            if let Some(r) = highest
+                && (role.position < r.position || (role.position == r.position && role.id > r.id))
+            {
+                continue;
             }
 
             highest = Some(role);

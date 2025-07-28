@@ -1,8 +1,8 @@
 use crate::{Context, Error};
 
 use lumi::{
-    serenity_prelude::{self as serenity, UserId},
     CreateReply,
+    serenity_prelude::{self as serenity, UserId},
 };
 use moth_core::data::database::StarboardStatus;
 
@@ -13,7 +13,7 @@ use ::serenity::all::{
 
 use itertools::Itertools;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Write,
 };
 
@@ -84,11 +84,11 @@ pub async fn add_starboard_override(
     channel: GenericInteractionChannel,
     count: u8,
 ) -> Result<(), Error> {
-    if let GenericInteractionChannel::Channel(c) = &channel {
-        if c.base.kind == ChannelType::Category {
-            ctx.say("Cannot use this on a category yet.").await?;
-            return Ok(());
-        }
+    if let GenericInteractionChannel::Channel(c) = &channel
+        && c.base.kind == ChannelType::Category
+    {
+        ctx.say("Cannot use this on a category yet.").await?;
+        return Ok(());
     }
 
     ctx.data()
@@ -112,11 +112,11 @@ pub async fn remove_starboard_override(
     ctx: Context<'_>,
     channel: GenericInteractionChannel,
 ) -> Result<(), Error> {
-    if let GenericInteractionChannel::Channel(c) = &channel {
-        if c.base.kind == ChannelType::Category {
-            ctx.say("Categories can't have overrides.").await?;
-            return Ok(());
-        }
+    if let GenericInteractionChannel::Channel(c) = &channel
+        && c.base.kind == ChannelType::Category
+    {
+        ctx.say("Categories can't have overrides.").await?;
+        return Ok(());
     }
 
     let present = ctx

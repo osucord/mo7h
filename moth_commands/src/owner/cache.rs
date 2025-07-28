@@ -1,7 +1,7 @@
-use crate::{owner::admin, Context, Error};
+use crate::{Context, Error, owner::admin};
 use futures::StreamExt;
 
-use ::serenity::all::{collect, Event, GuildId};
+use ::serenity::all::{Event, GuildId, collect};
 use lumi::serenity_prelude as serenity;
 use std::{fmt::Write, time::Duration};
 
@@ -185,10 +185,11 @@ async fn chunk_and_wait(ctx: Context<'_>, guild_id: GuildId) -> bool {
             return false; // Total timeout hit.
         }
 
-        if let Some(nonce) = nonce {
-            if nonce.as_str() == ctx.id().to_string().as_str() && index + 1 == count {
-                return true;
-            }
+        if let Some(nonce) = nonce
+            && nonce.as_str() == ctx.id().to_string().as_str()
+            && index + 1 == count
+        {
+            return true;
         }
     }
 

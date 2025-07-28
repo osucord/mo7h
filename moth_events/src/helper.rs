@@ -81,10 +81,10 @@ pub async fn get_channel_name(
         return name;
     }
 
-    if let Ok(channel) = channel_id.to_channel(ctx, guild_id).await {
-        if let Some(guild_channel) = channel.guild() {
-            return guild_channel.base.name.to_string();
-        }
+    if let Ok(channel) = channel_id.to_channel(ctx, guild_id).await
+        && let Some(guild_channel) = channel.guild()
+    {
+        return guild_channel.base.name.to_string();
     }
 
     "None".to_string()

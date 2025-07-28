@@ -6,8 +6,8 @@ pub(crate) mod roles;
 use std::fmt::Write;
 
 use crate::{
-    helper::{get_channel_name, get_guild_name_override, get_user},
     Data, Error,
+    helper::{get_channel_name, get_guild_name_override, get_user},
 };
 use lumi::serenity_prelude::{
     self as serenity, AuditLogEntry, AutoModAction, ChannelId, CreateEmbedAuthor, Guild, GuildId,
@@ -198,25 +198,23 @@ pub async fn guild_audit_log_entry_create(
         )
         .to_string();
 
-        {
-            if let Some(msgs) = ctx.cache.channel_messages(id.into()) {
-                for msg in msgs
-                    .iter()
-                    .rev()
-                    .filter(|m| m.author.id == entry.user_id.unwrap())
+        if let Some(msgs) = ctx.cache.channel_messages(id.into()) {
+            for msg in msgs
+                .iter()
+                .rev()
+                .filter(|m| m.author.id == entry.user_id.unwrap())
+            {
+                if let Some(description) = msg
+                    .embeds
+                    .first()
+                    .filter(|e| e.kind.as_deref() == Some("auto_moderation_message"))
+                    .and_then(|e| e.description.as_ref())
                 {
-                    if let Some(description) = msg
-                        .embeds
-                        .first()
-                        .filter(|e| e.kind.as_deref() == Some("auto_moderation_message"))
-                        .and_then(|e| e.description.as_ref())
-                    {
-                        status = description.to_string();
-                        break;
-                    }
+                    status = description.to_string();
+                    break;
                 }
-            };
-        };
+            }
+        }
 
         let author_title = format!("{user_name} tried to set an inappropriate status");
         let footer = serenity::CreateEmbedFooter::new(format!(

@@ -99,13 +99,13 @@ fn get_role(
         return Ok(parsed_role.map(|id| (id, 0)));
     };
 
-    if let Some(role_id) = parsed_role {
-        if let Some(role) = guild.roles.get(&role_id) {
-            if is_assignable(role) {
-                return Ok(Some((role.id, role.position)));
-            }
-            return Err(ERR_ASSIGNABLE);
+    if let Some(role_id) = parsed_role
+        && let Some(role) = guild.roles.get(&role_id)
+    {
+        if is_assignable(role) {
+            return Ok(Some((role.id, role.position)));
         }
+        return Err(ERR_ASSIGNABLE);
     }
 
     find_unique_role(role_name, &guild)

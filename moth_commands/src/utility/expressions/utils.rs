@@ -1,4 +1,4 @@
-use aformat::{aformat, ToArrayString};
+use aformat::{ToArrayString, aformat};
 use std::{borrow::Cow, fmt::Write};
 
 use crate::{Context, Error};
@@ -200,10 +200,10 @@ pub(super) async fn check_in_guild(
                 .iter()
                 .find(|e| e.name.as_str().eq_ignore_ascii_case(string));
 
-            if let Some(e) = emoji {
-                if e.name != *string {
-                    *expression = Expression::Emote((e.id.get(), Cow::Owned(e.name.to_string())));
-                }
+            if let Some(e) = emoji
+                && e.name != *string
+            {
+                *expression = Expression::Emote((e.id.get(), Cow::Owned(e.name.to_string())));
             }
             emoji.is_some()
         }

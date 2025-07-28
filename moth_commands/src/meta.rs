@@ -189,19 +189,19 @@ async fn register(ctx: Context<'_>) -> Result<(), Error> {
 async fn overwrite(ctx: Context<'_>, category: Option<GuildChannel>) -> Result<(), Error> {
     let mut count = 0;
 
-    if let Some(category) = &category {
-        if category.base.kind != ChannelType::Category {
-            ctx.say("Not a category!").await?;
-        }
+    if let Some(category) = &category
+        && category.base.kind != ChannelType::Category
+    {
+        ctx.say("Not a category!").await?;
     }
 
     if let Some(category) = &category {
         let guild = ctx.guild().unwrap();
         for channel in &guild.channels {
-            if let Some(parent) = channel.parent_id {
-                if parent == category.id {
-                    count += channel.permission_overwrites.len();
-                }
+            if let Some(parent) = channel.parent_id
+                && parent == category.id
+            {
+                count += channel.permission_overwrites.len();
             }
         }
     } else {

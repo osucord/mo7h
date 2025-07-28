@@ -4,7 +4,7 @@ use serenity::all::{
     ChannelType, CreateMessage, CreatePoll, CreatePollAnswer, GuildChannel, MessageId, ThreadId,
 };
 
-use crate::{owner::admin, Context, Error};
+use crate::{Context, Error, owner::admin};
 
 #[lumi::command(
     prefix_command,
@@ -84,11 +84,11 @@ pub async fn polls(ctx: Context<'_>, channel: GuildChannel) -> Result<(), Error>
         let name = thread.base.name.split('\'').next().unwrap_or("Unknown");
         let mut mod_position = None;
         for line in starter_message.content.lines() {
-            if line.starts_with("**Position**") {
-                if let Some(pos) = line.split("—").nth(1) {
-                    let position = pos.trim();
-                    mod_position = Some(position);
-                }
+            if line.starts_with("**Position**")
+                && let Some(pos) = line.split("—").nth(1)
+            {
+                let position = pos.trim();
+                mod_position = Some(position);
             }
         }
 

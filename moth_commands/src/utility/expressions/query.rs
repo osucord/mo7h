@@ -17,9 +17,15 @@ pub(super) async fn handle_expression_query(
             let id = *id;
             query_as!(
                 ExpressionCounts,
-                "SELECT eu.user_id, COUNT(eu.id) AS reaction_count FROM emote_usage eu JOIN \
-                 emotes e ON eu.emote_id = e.id WHERE eu.usage_type = ANY($3) AND e.discord_id = \
-                 $1 AND eu.guild_id = $2 GROUP BY  eu.user_id ORDER BY  reaction_count DESC",
+                "SELECT u.user_id, COUNT(eu.id) AS reaction_count
+                 FROM emote_usage eu
+                 JOIN emotes e ON eu.emote_id = e.id
+                 JOIN users u ON eu.user_id = u.id
+                 WHERE eu.usage_type = ANY($3)
+                 AND e.discord_id = $1
+                 AND eu.guild_id = $2
+                 GROUP BY u.user_id
+                 ORDER BY reaction_count DESC",
                 id as i64,
                 guild_id,
                 types as &[EmoteUsageType]
@@ -30,9 +36,15 @@ pub(super) async fn handle_expression_query(
         Expression::Name(string) => {
             query_as!(
                 ExpressionCounts,
-                "SELECT eu.user_id, COUNT(eu.id) AS reaction_count FROM emote_usage eu JOIN \
-                 emotes e ON eu.emote_id = e.id WHERE eu.usage_type = ANY($3) AND e.emote_name = \
-                 $1 AND eu.guild_id = $2 GROUP BY eu.user_id ORDER BY reaction_count DESC",
+                "SELECT u.user_id, COUNT(eu.id) AS reaction_count
+                 FROM emote_usage eu
+                 JOIN emotes e ON eu.emote_id = e.id
+                 JOIN users u ON eu.user_id = u.id
+                 WHERE eu.usage_type = ANY($3)
+                 AND e.emote_name = $1
+                 AND eu.guild_id = $2
+                 GROUP BY u.user_id
+                 ORDER BY reaction_count DESC",
                 string,
                 guild_id,
                 types as &[EmoteUsageType]
@@ -43,10 +55,16 @@ pub(super) async fn handle_expression_query(
         Expression::Standard(string) => {
             query_as!(
                 ExpressionCounts,
-                "SELECT eu.user_id, COUNT(eu.id) AS reaction_count FROM emote_usage eu JOIN \
-                 emotes e ON eu.emote_id = e.id WHERE eu.usage_type = ANY($3) AND e.emote_name = \
-                 $1 AND eu.guild_id = $2 AND e.discord_id IS NULL GROUP BY eu.user_id ORDER BY \
-                 reaction_count DESC",
+                "SELECT u.user_id, COUNT(eu.id) AS reaction_count
+                 FROM emote_usage eu
+                 JOIN emotes e ON eu.emote_id = e.id
+                 JOIN users u ON eu.user_id = u.id
+                 WHERE eu.usage_type = ANY($3)
+                 AND e.emote_name = $1
+                 AND eu.guild_id = $2
+                 AND e.discord_id IS NULL
+                 GROUP BY u.user_id
+                 ORDER BY reaction_count DESC",
                 string,
                 guild_id,
                 types as &[EmoteUsageType]

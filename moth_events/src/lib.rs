@@ -136,11 +136,10 @@ pub async fn event_handler(
             ..
         } => {
             let guilds = { data.config.read().vcstatus.guilds.clone() };
-            if let Some(guilds) = guilds {
-                if guilds.contains(guild_id) {
-                    channels::voice_channel_status_update(ctx, old, status, id, guild_id, data)
-                        .await?;
-                }
+            if let Some(guilds) = guilds
+                && guilds.contains(guild_id)
+            {
+                channels::voice_channel_status_update(ctx, old, status, id, guild_id, data).await?;
             }
         }
         FullEvent::VoiceStateUpdate { old, new, .. } => {
@@ -168,6 +167,10 @@ pub async fn event_handler(
         FullEvent::InteractionCreate { interaction, .. } => {
             if let Some(component) = interaction.as_message_component() {
                 moth_starboard::handle_component(ctx, data, component).await?;
+                moth_core::data::database::private_vcs::interactions::handle_interaction(
+                    ctx, component,
+                )
+                .await;
             }
         }
         _ => {}

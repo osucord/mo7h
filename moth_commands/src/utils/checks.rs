@@ -50,11 +50,11 @@ pub fn get_cmd_name(
                 .iter()
                 .any(|alias| alias == &cmd_name.to_lowercase())
         {
-            // Check if the command is an owner command.
+            // Check if the command is an admin command.
             if !command
                 .category
                 .as_deref()
-                .is_some_and(|c| c.to_lowercase().starts_with("owner"))
+                .is_some_and(|c| c.to_lowercase().starts_with("admin"))
             {
                 return Err(CommandRestrictErr::NotOwnerCommand);
             }

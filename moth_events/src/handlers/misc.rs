@@ -1,8 +1,8 @@
 use crate::{Data, Error};
 use lumi::serenity_prelude::{self as serenity, Ready};
 
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 pub async fn ready(ctx: &serenity::Context, ready: &Ready, data: Arc<Data>) -> Result<(), Error> {
@@ -39,8 +39,16 @@ async fn finalize_start(ctx: &serenity::Context) {
 
     let data_clone = data.clone();
     tokio::spawn(moth_core::verification::run(data_clone));
+
     data.web.start_background_task(ctx.clone()).await;
     data.emote_processor
         .start_background_task(Arc::clone(&data.database))
         .await;
+
+    if std::env::var("PRIVATE_VC_ACTIVE")
+        .map(|v| v.parse::<bool>().unwrap_or(false))
+        .unwrap_or(false)
+    {
+        data.private_vc.start_background_task(ctx.clone()).await;
+    }
 }

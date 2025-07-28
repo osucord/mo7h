@@ -7,7 +7,7 @@ use parking_lot::lock_api::Mutex;
 use serenity::all::{GenericChannelId, GuildId, RoleId};
 use std::{
     collections::VecDeque,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 pub async fn setup() -> Arc<Data> {
@@ -41,6 +41,7 @@ pub async fn setup() -> Arc<Data> {
         web: WebServer::new().await,
         auto_pooped,
         emote_processor: EmoteProcessor::default(),
+        private_vc: moth_core::data::database::private_vcs::PrivateVcHandler::default(),
     })
 }
 

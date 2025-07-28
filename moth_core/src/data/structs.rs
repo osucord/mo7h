@@ -14,7 +14,7 @@ use lumi::serenity_prelude::{GenericChannelId, GuildId, MessageId, UserId};
 use std::sync::atomic::AtomicBool;
 
 use crate::{
-    data::database::reactions::EmoteProcessor,
+    data::database::{private_vcs::PrivateVcHandler, reactions::EmoteProcessor},
     standby::AuthenticationStandby,
     verification::{sender::VerificationSender, task},
 };
@@ -48,6 +48,7 @@ pub struct Data {
     pub web: WebServer,
     pub auto_pooped: dashmap::DashSet<UserId>,
     pub emote_processor: EmoteProcessor,
+    pub private_vc: PrivateVcHandler,
 }
 
 pub struct WebServer {

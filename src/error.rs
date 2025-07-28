@@ -1,14 +1,14 @@
 use ::serenity::{all::CreateAllowedMentions, small_fixed_array::FixedString};
-use lumi::{serenity_prelude as serenity, CreateReply};
+use lumi::{CreateReply, serenity_prelude as serenity};
 use moth_commands::utils::{handle_cooldown, prefix_bot_perms};
 use moth_core::data::structs::{Context, Data, Error, InvocationData};
 
 async fn handle_command_error(ctx: Context<'_>, error: Error) {
-    if let Some(invocation_data) = ctx.invocation_data::<InvocationData>().await {
-        if let Some(duration) = invocation_data.cooldown_remaining {
-            let _ = handle_cooldown(duration, ctx).await;
-            return;
-        }
+    if let Some(invocation_data) = ctx.invocation_data::<InvocationData>().await
+        && let Some(duration) = invocation_data.cooldown_remaining
+    {
+        let _ = handle_cooldown(duration, ctx).await;
+        return;
     }
 
     // surely this isn't a bad idea?

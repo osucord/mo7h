@@ -1,11 +1,17 @@
-use ::serenity::{all::MessageId, small_fixed_array::FixedString};
+use ::serenity::{
+    all::{ChannelId, GuildId, MessageId, RoleId},
+    small_fixed_array::FixedString,
+};
 use dashmap::{DashMap, DashSet};
 use parking_lot::Mutex;
 use serenity::all::UserId;
 use sqlx::{Executor, PgPool, postgres::PgPoolOptions, query};
 use std::{collections::HashSet, env, sync::Arc, time::Duration};
 
-use crate::data::structs::{DmActivity, Error};
+use crate::data::{
+    database::private_vcs::task::GUILD,
+    structs::{DmActivity, Error},
+};
 
 use lumi::serenity_prelude as serenity;
 
@@ -14,6 +20,7 @@ pub mod starboard;
 pub mod wrappers;
 pub use starboard::*;
 pub use wrappers::*;
+pub mod private_vcs;
 pub mod reactions;
 
 pub async fn init_data() -> Database {
@@ -39,6 +46,10 @@ pub async fn init_data() -> Database {
         .time_to_idle(Duration::from_secs(3600))
         .build();
 
+    let private_vc_cache = mini_moka::sync::CacheBuilder::new(500)
+        .time_to_idle(Duration::from_secs(1800))
+        .build();
+
     Database {
         starboard: Mutex::new(
             StarboardHandler::new(&database)
@@ -52,6 +63,7 @@ pub async fn init_data() -> Database {
         guilds: DashMap::new(),
         messages: DashMap::new(),
         emotes: DashMap::new(),
+        private_vc: private_vc_cache,
     }
 }
 
@@ -71,6 +83,8 @@ pub struct Database {
     channels: DashMap<serenity::GenericChannelId, (i32, Option<i32>)>,
     messages: DashMap<serenity::MessageId, MessageData>,
     emotes: DashMap<serenity::ReactionType, i32>,
+    // TODO: return privacy after i decide to make proper getters and setters
+    pub private_vc: mini_moka::sync::Cache<ChannelId, Option<Arc<PrivateVc>>>,
     pub starboard: Mutex<starboard::StarboardHandler>,
     // TODO: try and keep private and rewrite them when i eventually redo my users and starboard part.
     /// Runtime caches for dm activity.
@@ -99,6 +113,16 @@ impl Transaction<'_> {
     pub async fn rollback(self) -> Result<(), sqlx::Error> {
         self.tx.rollback().await
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct PrivateVc {
+    pub owner_id: UserId,
+    pub message_id: Option<MessageId>,
+    pub trusted_users: Vec<UserId>,
+    pub allowlist_roles: Vec<RoleId>,
+    pub allowlist_users: Vec<UserId>,
+    pub denylist_users: Vec<UserId>,
 }
 
 #[bool_to_bitflags::bool_to_bitflags]
@@ -507,6 +531,437 @@ impl Database {
         }
 
         Ok(false)
+    }
+
+    pub async fn get_private_vc(
+        &self,
+        channel_id: serenity::ChannelId,
+        guild_id: Option<serenity::GuildId>,
+    ) -> Option<Arc<PrivateVc>> {
+        if let Some(private_vc) = self.private_vc.get(&channel_id) {
+            return private_vc;
+        }
+
+        if let Some(vc) = self.get_private_vc_(channel_id, guild_id).await {
+            let vc = Some(Arc::new(vc));
+
+            self.private_vc.insert(channel_id, vc.clone());
+
+            return vc.clone();
+        }
+
+        None
+    }
+
+    pub async fn get_private_vc_(
+        &self,
+        channel_id: serenity::ChannelId,
+        guild_id: Option<serenity::GuildId>,
+    ) -> Option<PrivateVc> {
+        let results = query!(
+            r#"
+            SELECT
+                ch.channel_id AS channel_id,
+                owner.user_id AS owner_id,
+                pv.allowlist_roles,
+                COALESCE(alu.allowlist_users, ARRAY[]::BIGINT[]) AS allowlist_users,
+                COALESCE(tru.trusted_users, ARRAY[]::BIGINT[]) AS trusted_users,
+                COALESCE(dnu.denylist_users, ARRAY[]::BIGINT[]) AS denylist_users,
+                msg.message_id AS "message_id?"
+            FROM private_vcs pv
+            JOIN users owner ON pv.owner_id = owner.id
+            JOIN channels ch ON pv.channel_id = ch.id
+            LEFT JOIN messages msg ON pv.message_id = msg.id
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS allowlist_users
+                FROM private_vc_allowlist_users al
+                LEFT JOIN users u ON al.user_id = u.id
+                WHERE al.channel_id = pv.channel_id
+            ) alu ON TRUE
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS trusted_users
+                FROM private_vc_trusted_users tu
+                LEFT JOIN users u ON tu.user_id = u.id
+                WHERE tu.channel_id = pv.channel_id
+            ) tru ON TRUE
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS denylist_users
+                FROM private_vc_denylist_users du
+                LEFT JOIN users u ON du.user_id = u.id
+                WHERE du.channel_id = pv.channel_id
+            ) dnu ON TRUE
+            WHERE pv.channel_id = $1
+            "#,
+            self.get_channel(channel_id.widen(), guild_id).await.ok()?.0
+        )
+        .fetch_one(&self.db)
+        .await
+        .ok()?;
+
+        Some(PrivateVc {
+            owner_id: UserId::new(results.owner_id as u64),
+            message_id: results.message_id.map(|m| MessageId::new(m as u64)),
+            trusted_users: results
+                .trusted_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|u| UserId::new(u as u64))
+                .collect(),
+            allowlist_roles: results
+                .allowlist_roles
+                .into_iter()
+                .map(|r| RoleId::new(r as u64))
+                .collect(),
+            allowlist_users: results
+                .allowlist_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|u| UserId::new(u as u64))
+                .collect(),
+            denylist_users: results
+                .denylist_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|u| UserId::new(u as u64))
+                .collect(),
+        })
+    }
+
+    pub async fn get_all_private_vcs(&self) -> Result<Vec<(ChannelId, Arc<PrivateVc>)>, Error> {
+        let records = sqlx::query!(
+            r#"
+            SELECT
+                ch.channel_id AS channel_id,
+                owner.user_id AS owner_id,
+                pv.allowlist_roles,
+                COALESCE(alu.allowlist_users, ARRAY[]::BIGINT[]) AS allowlist_users,
+                COALESCE(tru.trusted_users, ARRAY[]::BIGINT[]) AS trusted_users,
+                COALESCE(dnu.denylist_users, ARRAY[]::BIGINT[]) AS denylist_users,
+                msg.message_id AS "message_id?"
+            FROM private_vcs pv
+            JOIN users owner ON pv.owner_id = owner.id
+            JOIN channels ch ON pv.channel_id = ch.id
+            LEFT JOIN messages msg ON pv.message_id = msg.id
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS allowlist_users
+                FROM private_vc_allowlist_users al
+                LEFT JOIN users u ON al.user_id = u.id
+                WHERE al.channel_id = pv.channel_id
+            ) alu ON TRUE
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS trusted_users
+                FROM private_vc_trusted_users tu
+                LEFT JOIN users u ON tu.user_id = u.id
+                WHERE tu.channel_id = pv.channel_id
+            ) tru ON TRUE
+
+            LEFT JOIN LATERAL (
+                SELECT ARRAY_AGG(DISTINCT u.user_id) AS denylist_users
+                FROM private_vc_denylist_users du
+                LEFT JOIN users u ON du.user_id = u.id
+                WHERE du.channel_id = pv.channel_id
+            ) dnu ON TRUE
+        "#
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        let mut result = Vec::with_capacity(records.len());
+
+        for row in records {
+            let channel_id = ChannelId::new(row.channel_id as u64);
+            let owner_id = UserId::new(row.owner_id as u64);
+
+            let allowlist_roles = row
+                .allowlist_roles
+                .into_iter()
+                .map(|r| RoleId::new(r as u64))
+                .collect::<Vec<_>>();
+
+            let allowlist_users = row
+                .allowlist_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|id| UserId::new(id as u64))
+                .collect::<Vec<_>>();
+
+            let trusted_users = row
+                .trusted_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|id| UserId::new(id as u64))
+                .collect::<Vec<_>>();
+
+            let denylist_users = row
+                .denylist_users
+                .unwrap_or_default()
+                .into_iter()
+                .map(|id| UserId::new(id as u64))
+                .collect::<Vec<_>>();
+
+            let private_vc = Arc::new(PrivateVc {
+                owner_id,
+                message_id: row.message_id.map(|m| MessageId::new(m as u64)),
+                trusted_users,
+                allowlist_roles,
+                allowlist_users,
+                denylist_users,
+            });
+
+            self.private_vc.insert(channel_id, Some(private_vc.clone()));
+            result.push((channel_id, private_vc));
+        }
+
+        Ok(result)
+    }
+
+    async fn hydrate_users(&self, users: Vec<UserId>) -> Result<Vec<i32>, Error> {
+        let mut hydrated = Vec::with_capacity(users.len());
+        for user_id in users {
+            // TODO: bulk method
+            let user = self.get_user(user_id).await?;
+            hydrated.push(user.id);
+        }
+        Ok(hydrated)
+    }
+
+    // TODO: refactor this horrid mess and split this out
+    #[expect(clippy::too_many_arguments, clippy::too_many_lines)]
+    pub async fn create_private_vc(
+        &self,
+        channel_id: serenity::ChannelId,
+        message_id: Option<MessageId>,
+        guild_id: Option<serenity::GuildId>,
+        owner_id: UserId,
+        allowlist_roles: Vec<RoleId>,
+        allowlist_users: Vec<UserId>,
+        trusted_users: Vec<UserId>,
+        denylist_users: Vec<UserId>,
+        bot_id: UserId,
+    ) -> Result<(), Error> {
+        self.private_vc.insert(
+            channel_id,
+            Some(Arc::new(PrivateVc {
+                owner_id,
+                message_id,
+                trusted_users: trusted_users.clone(),
+                allowlist_roles: allowlist_roles.clone(),
+                allowlist_users: allowlist_users.clone(),
+                denylist_users: denylist_users.clone(),
+            })),
+        );
+
+        // Hydrate channel (get fresh channel info & ID)
+        let (channel, _) = self.get_channel(channel_id.widen(), guild_id).await?;
+
+        // Hydrate owner user
+        let owner = self.get_user(owner_id).await?;
+        let hydrated_owner_id = owner.id;
+
+        let role_ids = allowlist_roles
+            .iter()
+            .map(|r| r.get() as i64)
+            .collect::<Vec<_>>();
+
+        // Hydrate all user lists
+        let allowlist_users = self.hydrate_users(allowlist_users).await?;
+        let trusted_users = self.hydrate_users(trusted_users).await?;
+        let denylist_users = self.hydrate_users(denylist_users).await?;
+
+        // TODO: really need to refactor this.
+        sqlx::query!(
+            r#"
+            DELETE FROM private_vcs WHERE channel_id = $1
+            "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        // Insert main private_vcs record with hydrated channel_id and owner_id
+
+        let message_id = if let Some(message_id) = message_id {
+            self.get_message(message_id, channel_id.widen(), Some(GUILD), bot_id)
+                .await
+                .ok()
+                .map(|m| m.id)
+        } else {
+            None
+        };
+
+        sqlx::query!(
+            r#"
+            INSERT INTO private_vcs (channel_id, owner_id, allowlist_roles, message_id)
+            VALUES ($1, $2, $3, $4)
+            "#,
+            channel,
+            hydrated_owner_id,
+            &role_ids,
+            message_id
+        )
+        .execute(&self.db)
+        .await?;
+
+        // cleanup
+
+        sqlx::query!(
+            r#"
+            DELETE FROM private_vc_allowlist_users WHERE channel_id = $1
+            "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        sqlx::query!(
+            r#"
+            DELETE FROM private_vc_trusted_users WHERE channel_id = $1
+            "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        sqlx::query!(
+            r#"
+            DELETE FROM private_vc_denylist_users WHERE channel_id = $1
+            "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        // Insert allowlist users using hydrated_channel_id and hydrated user IDs
+        for user_id in allowlist_users {
+            sqlx::query!(
+                r#"
+                INSERT INTO private_vc_allowlist_users (channel_id, user_id)
+                VALUES ($1, $2)
+                "#,
+                channel,
+                user_id
+            )
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Insert trusted users
+        for user_id in trusted_users {
+            sqlx::query!(
+                r#"
+            INSERT INTO private_vc_trusted_users (channel_id, user_id)
+            VALUES ($1, $2)
+            "#,
+                channel,
+                user_id
+            )
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Insert denylist users
+        for user_id in denylist_users {
+            sqlx::query!(
+                r#"
+                    INSERT INTO private_vc_denylist_users (channel_id, user_id)
+                    VALUES ($1, $2)
+                    "#,
+                channel,
+                user_id,
+            )
+            .execute(&self.db)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn set_vc_message_id(
+        &self,
+        channel_id: serenity::ChannelId,
+        message_id: MessageId,
+        guild_id: GuildId,
+        bot_id: UserId,
+    ) -> Result<(), Error> {
+        let Some(Some(pvc)) = self.private_vc.get(&channel_id) else {
+            return Ok(());
+        };
+
+        let mut pvc = (*pvc).clone();
+        pvc.message_id = Some(message_id);
+
+        self.private_vc.insert(channel_id, Some(Arc::new(pvc)));
+
+        let msg_data = self
+            .get_message(message_id, channel_id.widen(), Some(guild_id), bot_id)
+            .await?;
+
+        query!(
+            "UPDATE private_vcs SET message_id = $1 WHERE channel_id = $2",
+            msg_data.id,
+            msg_data.channel_id,
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_private_vc(
+        &self,
+        channel_id: serenity::ChannelId,
+        guild_id: serenity::GuildId,
+    ) -> Result<(), Error> {
+        self.private_vc.invalidate(&channel_id);
+
+        let channel = self
+            .get_channel(channel_id.widen(), Some(guild_id))
+            .await?
+            .0;
+
+        sqlx::query!(
+            r#"
+        DELETE FROM private_vcs WHERE channel_id = $1
+        "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        // Delete from associated user tables
+        sqlx::query!(
+            r#"
+        DELETE FROM private_vc_allowlist_users WHERE channel_id = $1
+        "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        sqlx::query!(
+            r#"
+        DELETE FROM private_vc_trusted_users WHERE channel_id = $1
+        "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        sqlx::query!(
+            r#"
+        DELETE FROM private_vc_denylist_users WHERE channel_id = $1
+        "#,
+            channel
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
     }
 
     // temporary function to give access to the inner command overwrites while i figure something out.
