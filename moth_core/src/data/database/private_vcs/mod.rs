@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use serenity::{
-    all::{ChannelId, Context, UserId},
+    all::{ChannelId, Colour, Context, CreateEmbed, CreateMessage, GenericChannelId, UserId},
+    futures::FutureExt,
     small_fixed_array::FixedString,
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -23,7 +24,31 @@ impl PrivateVcHandler {
         self.sender.set(tx).await;
 
         tokio::spawn(async move {
-            task::start(ctx, rx).await;
+            let http = ctx.http.clone();
+            let result = std::panic::AssertUnwindSafe(task::start(ctx, rx))
+                .catch_unwind()
+                .await;
+
+            if let Err(e) = result {
+                let trace = if let Some(s) = e.downcast_ref::<&str>() {
+                    Some((*s).to_string())
+                } else if let Ok(s) = e.downcast::<String>() {
+                    Some(*s)
+                } else {
+                    None
+                };
+
+                let _ = GenericChannelId::new(158484765136125952)
+                    .send_message(
+                        &http,
+                        CreateMessage::new()
+                            .content("<@158567567487795200> I'M PANICKING HELP")
+                            .embed(CreateEmbed::new().colour(Colour::RED).description(
+                                trace.unwrap_or(String::from("IDK WHATS WRONG WITH ME")),
+                            )),
+                    )
+                    .await;
+            }
         });
     }
 }

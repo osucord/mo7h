@@ -4,6 +4,7 @@
 mod data;
 mod error;
 
+use ::serenity::all::GuildId;
 use lumi::serenity_prelude::{self as serenity};
 use moth_core::data::structs::Error;
 use std::{sync::Arc, time::Duration};
@@ -107,6 +108,10 @@ async fn try_strip_prefix(msg: &serenity::Message) -> Result<Option<(&str, &str)
         if let Some(stripped) = msg.content.strip_prefix(prefix)
             && let Some(first_word) = stripped.split_whitespace().next()
         {
+            if msg.guild_id == Some(GuildId::new(1399499826164404254)) && prefix != "-" {
+                continue;
+            }
+
             if accela_commands
                 .iter()
                 .any(|cmd| cmd.eq_ignore_ascii_case(first_word))

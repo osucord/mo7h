@@ -116,7 +116,12 @@ async fn handle_expired(ctx: &Context, queue_type: QueueType) {
                     return;
                 };
 
+                // in future reschedule
                 let users = get_vc_users(ctx, channel_id);
+                if users.is_empty() {
+                    return;
+                }
+
                 let chosen_owner = {
                     let mut rng = rand::rng();
                     let random_index = rng.next_u32() as usize % users.len();
