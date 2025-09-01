@@ -329,8 +329,8 @@ pub async fn update_roles(
             .send_message(
                 &ctx.http,
                 CreateMessage::new()
-                    // phil and me
-                    .content("<@101090238067113984> <@158567567487795200>")
+                    // phil
+                    .content("<@101090238067113984>")
                     .embed(embed)
                     .flags(MessageFlags::SUPPRESS_NOTIFICATIONS),
             )
@@ -354,7 +354,7 @@ pub async fn update_roles(
                 &ctx.http,
                 CreateMessage::new()
                     // phil and me
-                    .content("<@101090238067113984> <@291089948709486593> <@158567567487795200>")
+                    .content("<@101090238067113984> <@291089948709486593>")
                     .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
                     .embed(embed),
             )

@@ -403,7 +403,7 @@ async fn pattern_matched(ctx: &serenity::Context, msg: &Message, guild: &str) ->
         .embed(embed);
 
     // TODO: use fw owner's or make configurable.
-    UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
+    // UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
 
     Ok(())
 }
@@ -450,7 +450,7 @@ async fn handle_dm(ctx: &serenity::Context, msg: &Message) -> Result<(), Error> 
         .embed(embed);
 
     // dm me about the mention of me.
-    UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
+    // UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
     Ok(())
 }
 

@@ -123,7 +123,7 @@ pub fn count_lob() -> Result<usize, Error> {
 // Also includes a few gg/osu mods because well why not!
 #[allow(clippy::unused_async)]
 pub async fn trontin(ctx: Context<'_>) -> Result<bool, Error> {
-    let allowed_users = [158567567487795200, 288054604548276235]; // me, trontin
+    let allowed_users = [291089948709486593, 288054604548276235]; // me, trontin
     let user_id = ctx.author().id.get();
     if allowed_users.contains(&user_id) {
         return Ok(true);

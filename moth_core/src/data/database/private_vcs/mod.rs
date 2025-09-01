@@ -42,7 +42,7 @@ impl PrivateVcHandler {
                     .send_message(
                         &http,
                         CreateMessage::new()
-                            .content("<@158567567487795200> I'M PANICKING HELP")
+                            .content("<@291089948709486593> I'M PANICKING HELP")
                             .embed(CreateEmbed::new().colour(Colour::RED).description(
                                 trace.unwrap_or(String::from("IDK WHATS WRONG WITH ME")),
                             )),

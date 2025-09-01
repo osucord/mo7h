@@ -310,11 +310,10 @@ pub fn commands() -> [crate::Command; 5] {
 
 // TODO: dedupe this with moth_core
 async fn allowed_user(ctx: Context<'_>) -> Result<bool, Error> {
-    // Phil, Ruben, me
+    // Phil, Ruben
     let a = [
         UserId::new(101090238067113984),
         UserId::new(291089948709486593),
-        UserId::new(158567567487795200),
     ];
 
     Ok(a.contains(&ctx.author().id))

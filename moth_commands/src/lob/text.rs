@@ -33,7 +33,7 @@ async fn lob_cooldown(ctx: Context<'_>) -> Result<(), Error> {
 
         let osu_game_allowed_users = [
             UserId::from(101090238067113984), // Phil
-            UserId::from(158567567487795200), // me
+            UserId::from(291089948709486593), // me
         ];
 
         // osugame

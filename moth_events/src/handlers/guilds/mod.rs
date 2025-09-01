@@ -115,7 +115,7 @@ pub async fn join_time(ctx: &serenity::Context, data: &Data, user_id: UserId) {
             .send_message(
                 &ctx.http,
                 CreateMessage::new().content(format!(
-                    "<@158567567487795200> group detected with join date within 1 day of each \
+                    "group detected with join date within 1 day of each \
                      other: {string}(possible raid, please watch vcs!)"
                 )),
             )

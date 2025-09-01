@@ -160,7 +160,6 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
             .users(vec![
                 UserId::new(101090238067113984),
                 UserId::new(291089948709486593),
-                UserId::new(158567567487795200),
             ]);
 
         let _ = LOG_CHANNEL
@@ -168,7 +167,7 @@ async fn verify_wrapper(ctx: Context<'_>, user: &UserExtended) -> Result<(), Err
                 ctx.http(),
                 CreateMessage::new()
                     .content(format!(
-                        "<@101090238067113984> <@291089948709486593> <@158567567487795200> \
+                        "<@101090238067113984> <@291089948709486593> \
                          Unlinked <@{existing_user}> from {} (osu ID: {}) because they linked to \
                          <@{}>",
                         user.username,
