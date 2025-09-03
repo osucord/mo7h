@@ -404,8 +404,8 @@ pub(super) async fn message(
             CreateButton::new("size_pvc_").label("Change size"),
         ])));
 
-    let region_section =
-        CreateComponent::TextDisplay(CreateTextDisplay::new("🌍 **Region**\n**Coming soon**!"));
+    // let region_section =
+    //     CreateComponent::TextDisplay(CreateTextDisplay::new("🌍 **Region**\n**Coming soon**!"));
 
     let private_text =
         if private_vc.allowlist_roles.is_empty() && private_vc.allowlist_users.is_empty() {
@@ -513,7 +513,7 @@ pub(super) async fn message(
             sep.clone(),
             general_settings_header,
             voice_channel_size_action_row,
-            region_section,
+            // region_section,
             sep.clone(),
             access_control,
             allowlist_select_menu,
