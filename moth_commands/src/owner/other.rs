@@ -125,7 +125,7 @@ pub async fn say_slash(
         ));
     }
 
-    let result = GenericChannelId::new(channel.parse::<u64>().unwrap())
+    let result = channel
         .send_message(ctx.http(), b)
         .await;
 
