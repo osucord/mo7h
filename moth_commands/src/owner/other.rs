@@ -66,7 +66,7 @@ pub async fn say_slash(
     ctx: Context<'_>,
     // Have to manually parse this because discord guild command.
     // Also doesn't let u64 just work??
-    #[description = "Channel where the message will be sent"] channel: String,
+    #[description = "Channel where the message will be sent"] channel: GenericChannelId,
     #[description = "What to say"] content: Option<String>,
     // parsed as a String and will be split later.
     #[description = "stickers (up to 3)"] sticker: Option<String>,
