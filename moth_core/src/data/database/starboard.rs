@@ -537,7 +537,7 @@ impl super::Database {
         channel_id: GenericChannelId,
     ) -> Result<bool, Error> {
         let result = sqlx::query!(
-            "DELETE FROM starboard_overrides WHERE channel_id = $1",
+            "DELETE FROM starboard_overrides WHERE channel_id = (SELECT id FROM channels WHERE channel_id = $1)",
             channel_id.get() as i64
         )
         .execute(&self.db)
