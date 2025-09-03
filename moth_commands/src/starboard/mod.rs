@@ -246,9 +246,9 @@ pub async fn list_overrides(ctx: Context<'_>) -> Result<(), Error> {
 
         for (i, (thread, score)) in sorted_threads.iter().enumerate() {
             let emoji = if (i + 1) == sorted_threads.len() {
-                "<:end:1367578699045798089>"
+                "<:end:1412853088229920928>"
             } else {
-                "<:cont:1367578704624095253>"
+                "<:cont:1412853100133224539>"
             };
 
             writeln!(

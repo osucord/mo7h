@@ -4,7 +4,7 @@ use ::serenity::all::{
 };
 use lumi::{
     serenity_prelude::{
-        self as serenity, Attachment, ChunkGuildFilter, Message, ReactionType, StickerId, UserId,
+        self as serenity, Attachment, ChunkGuildFilter, Message, StickerId,
     },
     CreateReply,
 };
@@ -66,7 +66,7 @@ pub async fn say_slash(
     ctx: Context<'_>,
     // Have to manually parse this because discord guild command.
     // Also doesn't let u64 just work??
-    #[description = "Channel where the message will be sent"] channel: String,
+    #[description = "Channel where the message will be sent"] channel: GenericChannelId,
     #[description = "What to say"] content: Option<String>,
     // parsed as a String and will be split later.
     #[description = "stickers (up to 3)"] sticker: Option<String>,
@@ -125,7 +125,7 @@ pub async fn say_slash(
         ));
     }
 
-    let result = GenericChannelId::new(channel.parse::<u64>().unwrap())
+    let result = channel
         .send_message(ctx.http(), b)
         .await;
 
@@ -134,63 +134,6 @@ pub async fn say_slash(
         Ok(_) => ctx.say("Successfully sent message!").await?,
         Err(err) => ctx.say(format!("{err}")).await?,
     };
-
-    Ok(())
-}
-
-/// dm a user!
-#[lumi::command(
-    prefix_command,
-    hide_in_help,
-    category = "Admin - Say",
-    check = "admin"
-)]
-pub async fn dm(
-    ctx: Context<'_>,
-    #[description = "ID"] user_id: UserId,
-    #[rest]
-    #[description = "Message"]
-    message: String,
-) -> Result<(), Error> {
-    user_id
-        .dm(
-            ctx.http(),
-            serenity::CreateMessage::default().content(message),
-        )
-        .await?;
-
-    Ok(())
-}
-
-/// React to a message with a specific reaction!
-#[lumi::command(
-    prefix_command,
-    hide_in_help,
-    category = "Admin - Messages",
-    check = "admin"
-)]
-pub async fn react(
-    ctx: Context<'_>,
-    #[description = "Message to react to"] message: Message,
-    #[description = "What to React with"] string: String,
-) -> Result<(), Error> {
-    // dumb stuff to get around discord stupidly attempting to strip the parsing.
-    let trimmed_string = string.trim_matches('`').trim_matches('\\').to_string();
-    // React to the message with the specified emoji
-    let reaction = trimmed_string.parse::<ReactionType>().unwrap(); // You may want to handle parsing errors
-    message.react(ctx.http(), reaction).await?;
-
-    Ok(())
-}
-
-// This halfs the memory usage at startup, not sure about other cases.
-#[lumi::command(prefix_command, category = "Owner", owners_only, hide_in_help)]
-async fn malloc_trim(ctx: Context<'_>) -> Result<(), Error> {
-    unsafe {
-        libc::malloc_trim(0);
-    }
-
-    ctx.say("Trimmed.").await?;
 
     Ok(())
 }
@@ -464,7 +407,7 @@ async fn http(ctx: Context<'_>, #[rest] input: String) -> Result<(), Error> {
 }
 
 #[must_use]
-pub fn commands() -> [crate::Command; 11] {
+pub fn commands() -> [crate::Command; 8] {
     let say = lumi::Command {
         slash_action: say_slash().slash_action,
         parameters: say_slash().parameters,
@@ -474,9 +417,6 @@ pub fn commands() -> [crate::Command; 11] {
     [
         shutdown(),
         say,
-        dm(),
-        react(),
-        malloc_trim(),
         chunk_guild_members(),
         fw_commands(),
         sudo(),

@@ -420,7 +420,7 @@ fn starboard_embeds<'a>(
     // TODO: don't hardcode the emoji
     let description = if starboard_msg.forwarded {
         format!(
-            ">>> <:forwarded:1327717562498420807> ***Forwarded***\n{}",
+            ">>> <:forwarded:1412853247961731134> ***Forwarded***\n{}",
             starboard_msg.content
         )
     } else {

@@ -95,7 +95,7 @@ pub async fn set_gradient(
     if let Some(role_id) = existing_role_id {
         let role_still_exists = {
             let Some(guild) = ctx.guild() else {
-                ctx.say("Cannot resolve guild from cache, please report this to jamesbt365.")
+                ctx.say("Cannot resolve guild from cache, please report this to Ruben.")
                     .await?;
                 return Ok(());
             };
@@ -176,7 +176,7 @@ async fn create_role_and_insert(
 ) -> Result<(), &'static str> {
     let Some(poop_position) = ({
         let Some(guild) = ctx.guild() else {
-            return Err("Could not resolve guild in cache, please contact jamesbt365 about this.");
+            return Err("Could not resolve guild in cache, please contact Ruben about this.");
         };
 
         // idk how else to like do this.
@@ -192,7 +192,7 @@ async fn create_role_and_insert(
         .fetch_one(&ctx.data().database.db)
         .await
         .map_err(|_| {
-            "Could not reserve database information, please contact jamesbt365 about this."
+            "Could not reserve database information, please contact Ruben about this."
         })?;
 
     let role_id = ctx
@@ -211,7 +211,7 @@ async fn create_role_and_insert(
                 .permissions(Permissions::empty()),
         )
         .await
-        .map_err(|_| "Error creating role, please report this to jamesbt365.")?
+        .map_err(|_| "Error creating role, please report this to Ruben.")?
         .id;
 
     sqlx::query!(
@@ -227,7 +227,7 @@ async fn create_role_and_insert(
     )
     .execute(&ctx.data().database.db)
     .await
-    .map_err(|_| "Could not secure your role, please report this to jamesbt365.")?;
+    .map_err(|_| "Could not secure your role, please report this to Ruben.")?;
 
     ctx.http()
         .add_member_role(

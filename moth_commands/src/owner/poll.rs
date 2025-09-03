@@ -46,7 +46,7 @@ pub async fn polls(ctx: Context<'_>, channel: GuildChannel) -> Result<(), Error>
     if archived_threads.has_more {
         ctx.say(
             "WARNING: how the FUCK do you have more than the limit of active threads fetchable in \
-             one request? I am not handling this do it yourself <:moth:1369814651193397338>",
+             one request? I am not handling this do it yourself <:moth:1400923966302060634>",
         )
         .await?;
     }

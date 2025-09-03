@@ -64,19 +64,19 @@ pub async fn reaction_add(
         _ => return Ok(()),
     }
 
-    let is_james_author = {
+    let is_ruben_author = {
         let msgs = ctx.cache.channel_messages(add_reaction.channel_id);
         if let Some(messages) = msgs {
             messages
                 .iter()
                 .find(|m| m.id == add_reaction.message_id)
-                .is_some_and(|m| m.author.id == serenity::UserId::new(158567567487795200))
+                .is_some_and(|m| m.author.id == serenity::UserId::new(291089948709486593))
         } else {
             false
         }
     };
 
-    if is_james_author {
+    if is_ruben_author {
         let _ = add_reaction.delete(&ctx.http).await;
     }
 

@@ -26,7 +26,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
 
     let fut = ctx.data().web.auth_standby.wait_for_osu();
 
-    let embed = CreateEmbed::new().title("osu! verification").description(format!("<:moth:1369814651193397338> [click here](https://osu.ppy.sh/oauth/authorize?client_id={}&response_type=code&scope=identify&redirect_uri=https://verify.osucord.moe&state={}) to verify your osu! profile!", ctx.data().web.osu_client_id, fut.state)).footer(CreateEmbedFooter::new("contact Moxy if you have any issues with verification")).colour(Colour::DARK_TEAL);
+    let embed = CreateEmbed::new().title("osu! verification").description(format!("<:moth:1400923966302060634> [click here](https://osu.ppy.sh/oauth/authorize?client_id={}&response_type=code&scope=identify&redirect_uri=https://verify.osucord.moe&state={}) to verify your osu! profile!", ctx.data().web.osu_client_id, fut.state)).footer(CreateEmbedFooter::new("contact Ruben if you have any issues with verification")).colour(Colour::DARK_TEAL);
 
     let handle = ctx
         .send(CreateReply::new().embed(embed).ephemeral(true))
