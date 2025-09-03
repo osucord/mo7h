@@ -6,7 +6,6 @@ pub mod other;
 pub mod phil;
 pub mod poll;
 pub mod presence;
-pub mod roles;
 
 use crate::{Context, Error};
 
@@ -24,7 +23,6 @@ pub fn commands() -> Vec<crate::Command> {
             .chain(cooldowns::commands())
             .chain(phil::commands())
             .chain(poll::commands())
-            .chain(roles::commands())
             .collect()
     }
 }

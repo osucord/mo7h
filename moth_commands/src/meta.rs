@@ -35,7 +35,7 @@ pub async fn uptime(ctx: Context<'_>) -> Result<(), Error> {
 // Post a link to my source code!
 #[lumi::command(slash_command, prefix_command, category = "Meta", user_cooldown = 3)]
 pub async fn source(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("<https://github.com/moth-rs/moth>").await?;
+    ctx.say("<https://github.com/osucord/mo7h>").await?;
     Ok(())
 }
 

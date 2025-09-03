@@ -5,15 +5,13 @@ mod anti_delete;
 mod database;
 use ::serenity::all::GenericChannelId;
 pub use database::EMOJI_REGEX;
-use invites::moderate_invites;
 pub mod invites;
 
-use crate::helper::{get_channel_name, get_guild_name, get_guild_name_override};
+use crate::helper::{get_channel_name, get_guild_name_override};
 use crate::{Data, Error};
 
 use moth_ansi::{CYAN, DIM, HI_BLACK, HI_RED, RESET};
 
-use database::insert_message;
 use lumi::serenity_prelude::{
     self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId, Message,
     MessageId, UserId,
@@ -21,7 +19,7 @@ use lumi::serenity_prelude::{
 
 pub async fn message(ctx: &serenity::Context, msg: &Message, data: Arc<Data>) -> Result<(), Error> {
     let mut dont_print = false;
-    let (content, patterns) = {
+    let content = {
         let config = &data.config.read().events;
 
         if should_skip_msg(
@@ -35,7 +33,7 @@ pub async fn message(ctx: &serenity::Context, msg: &Message, data: Arc<Data>) ->
         let maybe_flagged =
             moth_filter::filter_content(&msg.content, &config.badlist, &config.fixlist);
 
-        (maybe_flagged, config.regex.clone())
+        maybe_flagged
     };
 
     let guild_id = msg.guild_id;
@@ -55,13 +53,8 @@ pub async fn message(ctx: &serenity::Context, msg: &Message, data: Arc<Data>) ->
         );
     }
 
-    let guild_name = get_guild_name(ctx, guild_id);
     let _ = tokio::join!(
-        check_event_dm_regex(ctx, msg, &guild_name, patterns.as_deref()),
         handle_dm(ctx, msg),
-        insert_message(&data, msg),
-        // TODO: check why this broke
-        moderate_invites(ctx, &data, msg),
         auto_super_poop(ctx, msg),
     );
 
@@ -359,55 +352,6 @@ fn should_skip_msg(
     user_condition || channel_condition || mudae_cmd
 }
 
-async fn check_event_dm_regex(
-    ctx: &serenity::Context,
-    msg: &Message,
-    guild_name: &str,
-    patterns: Option<&[regex::Regex]>,
-) {
-    let Some(patterns) = patterns else {
-        return;
-    };
-
-    if patterns.iter().any(|pattern| {
-        pattern.is_match(&msg.content) && msg.author.id != 158567567487795200 && !msg.author.bot()
-    }) {
-        if matches!(msg.author.id.get(), 441785661503176724 | 840780008623570954) {
-            return;
-        }
-
-        let _ = pattern_matched(ctx, msg, guild_name).await;
-    }
-}
-
-async fn pattern_matched(ctx: &serenity::Context, msg: &Message, guild: &str) -> Result<(), Error> {
-    let embed = serenity::CreateEmbed::default()
-        .title("A pattern was matched!")
-        .description(format!(
-            "<#{}> by **{}** {}\n\n [Jump to message!]({})",
-            msg.channel_id,
-            msg.author.tag(),
-            msg.content,
-            msg.link()
-        ))
-        .color(Colour::from_rgb(0, 255, 0));
-
-    let msg = serenity::CreateMessage::default()
-        .content(format!(
-            "In {} <#{}> you were mentioned by {} (ID:{})",
-            guild,
-            msg.channel_id,
-            msg.author.tag(),
-            msg.author.id
-        ))
-        .embed(embed);
-
-    // TODO: use fw owner's or make configurable.
-    // UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
-
-    Ok(())
-}
-
 async fn handle_dm(ctx: &serenity::Context, msg: &Message) -> Result<(), Error> {
     let (user, is_interaction) = if let Some(metadata) = &msg.interaction_metadata.as_deref() {
         let data = match *metadata {
@@ -450,7 +394,7 @@ async fn handle_dm(ctx: &serenity::Context, msg: &Message) -> Result<(), Error> 
         .embed(embed);
 
     // dm me about the mention of me.
-    // UserId::from(158567567487795200).dm(&ctx.http, msg).await?;
+    UserId::from(291089948709486593).dm(&ctx.http, msg).await?;
     Ok(())
 }
 

@@ -35,7 +35,6 @@ pub async fn setup() -> Arc<Data> {
         config: parking_lot::RwLock::new(config),
         anti_delete_cache: moth_core::data::structs::AntiDeleteCache::default(),
         starboard_config,
-        ocr_engine: moth_core::ocr::OcrEngine::new(),
         new_join_vc: DashMap::default(),
         osu_game_joins: Mutex::new(VecDeque::new()),
         web: WebServer::new().await,
