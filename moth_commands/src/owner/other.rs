@@ -4,7 +4,7 @@ use ::serenity::all::{
 };
 use lumi::{
     serenity_prelude::{
-        self as serenity, Attachment, ChunkGuildFilter, Message, ReactionType, StickerId, UserId,
+        self as serenity, Attachment, ChunkGuildFilter, Message, StickerId,
     },
     CreateReply,
 };
