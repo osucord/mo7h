@@ -330,7 +330,7 @@ pub async fn update_roles(
                 &ctx.http,
                 CreateMessage::new()
                     // phil
-                    .content("<@101090238067113984>")
+                    // .content("<@101090238067113984>")
                     .embed(embed)
                     .flags(MessageFlags::SUPPRESS_NOTIFICATIONS),
             )
