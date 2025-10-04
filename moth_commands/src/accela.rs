@@ -43,6 +43,6 @@ pub async fn playless(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 #[must_use]
-pub fn commands() -> [crate::Command; 2] {
+pub fn commands() -> [crate::Command; 3] {
     [talk(), play(), playless()]
 }
