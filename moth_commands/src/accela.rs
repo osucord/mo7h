@@ -28,7 +28,21 @@ pub async fn play(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+#[lumi::command(
+    prefix_command,
+    hide_in_help,
+    aliases("pl", "playless"),
+    member_cooldown = "300"
+)]
+pub async fn playless(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say(
+        "https://cdn.discordapp.com/attachments/747469894639157392/1424042070565326878/play_less.gif",
+    )
+    .await?;
+    Ok(())
+}
+
 #[must_use]
 pub fn commands() -> [crate::Command; 2] {
-    [talk(), play()]
+    [talk(), play(), playless()]
 }
