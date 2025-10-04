@@ -92,7 +92,7 @@ async fn try_strip_prefix(msg: &serenity::Message) -> Result<Option<(&str, &str)
     // accela stuff
 
     let accela_prefix = ">>";
-    let accela_commands = ["playmore", "play", "p", "talkmore", "talk", "t"];
+    let accela_commands = ["playmore", "play", "p", "talkmore", "talk", "t", "pl", "playless"];
 
     if let Some(stripped) = msg.content.strip_prefix(accela_prefix)
         && let Some(first_word) = stripped.split_whitespace().next()
