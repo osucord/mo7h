@@ -1,7 +1,7 @@
 use rosu_v2::{
     model::GameMode,
-    prelude::{RankStatus, UserExtended},
     model::user::UserBeatmapsetsKind,
+    prelude::{RankStatus, UserExtended},
 };
 use serenity::all::{
     CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
@@ -457,7 +457,7 @@ async fn handle_maps(
 
         for mapset in mapsets {
             for map in mapset.maps.expect("always sent") {
-                if map.creator_id == user_id {
+                if map.creator_id == user_id || map.owners.unwrap_or_default().iter().any(|x| x.user_id == user_id) {
                     match map.status {
                         RankStatus::Ranked | RankStatus::Approved => match map.mode {
                             GameMode::Osu => holder.set_ranked_std(true),
