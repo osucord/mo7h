@@ -1,7 +1,7 @@
 use rosu_v2::{
     model::GameMode,
     prelude::{RankStatus, UserExtended},
-    request::MapType,
+    model::user::UserBeatmapsetsKind,
 };
 use serenity::all::{
     CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
@@ -419,12 +419,12 @@ enum MapTypeChoice {
     GuestEither,
 }
 
-impl From<MapTypeChoice> for MapType {
+impl From<MapTypeChoice> for UserBeatmapsetsKind {
     fn from(val: MapTypeChoice) -> Self {
         match val {
-            MapTypeChoice::Loved => MapType::Loved,
-            MapTypeChoice::Ranked => MapType::Ranked,
-            MapTypeChoice::GuestEither => MapType::Guest,
+            MapTypeChoice::Loved => UserBeatmapsetsKind::Loved,
+            MapTypeChoice::Ranked => UserBeatmapsetsKind::Ranked,
+            MapTypeChoice::GuestEither => UserBeatmapsetsKind::Guest,
         }
     }
 }
@@ -444,8 +444,7 @@ async fn handle_maps(
 
     loop {
         let Ok(mapsets) = osu
-            .user_beatmapsets(user_id)
-            .status(&map_type.into())
+            .user_beatmapsets(user_id, map_type.into())
             .offset(offset)
             .limit(5)
             .await

@@ -1711,11 +1711,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "leaky-bucket-lite"
-version = "0.5.2"
+name = "leaky-bucket"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1411c737dd21a748044ab29af14b7f920b2dcc277284df6dd986492c98bf5229"
+checksum = "0a396bb213c2d09ed6c5495fd082c991b6ab39c9daf4fff59e6727f85c73e4c5"
 dependencies = [
+ "parking_lot",
+ "pin-project-lite",
  "tokio",
 ]
 
@@ -2440,6 +2442,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
+name = "pin-project"
+version = "1.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "677f1add503faace112b9f1373e43e9e054bfdd22ff1a63c1bc485eaec6a6a8a"
+dependencies = [
+ "pin-project-internal",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e918e4ff8c4549eb882f14b3a4bc8c8bc93de829416eacf579f1207a8fbf861"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2926,8 +2948,8 @@ dependencies = [
 
 [[package]]
 name = "rosu-v2"
-version = "0.10.0"
-source = "git+https://github.com/jamesbt365/rosu-v2?branch=new-types#25359b5a7a7c7ee372bf14ae663c5557ffd25b8b"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#a5c8b58d4db3c1d090d68c2ea903511bda538bad"
 dependencies = [
  "bytes",
  "dashmap 6.1.0",
@@ -2937,7 +2959,8 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "itoa",
- "leaky-bucket-lite",
+ "leaky-bucket",
+ "pin-project",
  "rosu-mods",
  "serde",
  "serde_json",
