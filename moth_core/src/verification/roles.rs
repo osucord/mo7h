@@ -1,7 +1,7 @@
 use rosu_v2::{
     model::GameMode,
+    model::user::UserBeatmapsetsKind,
     prelude::{RankStatus, UserExtended},
-    request::MapType,
 };
 use serenity::all::{
     CreateEmbed, CreateEmbedAuthor, CreateMessage, EditMember, GenericChannelId, GuildId,
@@ -419,12 +419,12 @@ enum MapTypeChoice {
     GuestEither,
 }
 
-impl From<MapTypeChoice> for MapType {
+impl From<MapTypeChoice> for UserBeatmapsetsKind {
     fn from(val: MapTypeChoice) -> Self {
         match val {
-            MapTypeChoice::Loved => MapType::Loved,
-            MapTypeChoice::Ranked => MapType::Ranked,
-            MapTypeChoice::GuestEither => MapType::Guest,
+            MapTypeChoice::Loved => UserBeatmapsetsKind::Loved,
+            MapTypeChoice::Ranked => UserBeatmapsetsKind::Ranked,
+            MapTypeChoice::GuestEither => UserBeatmapsetsKind::Guest,
         }
     }
 }
@@ -444,8 +444,7 @@ async fn handle_maps(
 
     loop {
         let Ok(mapsets) = osu
-            .user_beatmapsets(user_id)
-            .status(&map_type.into())
+            .user_beatmapsets(user_id, map_type.into())
             .offset(offset)
             .limit(5)
             .await
@@ -458,7 +457,7 @@ async fn handle_maps(
 
         for mapset in mapsets {
             for map in mapset.maps.expect("always sent") {
-                if map.creator_id == user_id {
+                if map.creator_id == user_id || map.owners.unwrap_or_default().iter().any(|x| x.user_id == user_id) {
                     match map.status {
                         RankStatus::Ranked | RankStatus::Approved => match map.mode {
                             GameMode::Osu => holder.set_ranked_std(true),

@@ -44,7 +44,7 @@ rustrict = "0.7.33"
 regex = "1.11.1"
 serde = "1"
 serde_json = "1"
-rosu-v2 = { git = "https://github.com/jamesbt365/rosu-v2", branch = "new-types" }
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer" }
 handlebars = { version = "6.3.2", features = ["dir_source"] }
 
 [workspace.dependencies.serenity]
