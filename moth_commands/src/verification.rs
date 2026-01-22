@@ -44,7 +44,7 @@ pub async fn verify(ctx: Context<'_>) -> Result<(), Error> {
                             .description(
                                 "Thanks for verifying! You have automatically been assigned a \
                                  role based off your current osu!std rank. If you would like to \
-                                 choose another gamemode, run the </mode:1370135070110912606> \
+                                 choose another gamemode, run the </gamemode:1412070087749537913> \
                                  command.",
                             ),
                     ),
