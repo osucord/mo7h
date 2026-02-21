@@ -60,7 +60,14 @@ pub async fn handle_interaction(ctx: &Context, interaction: &ComponentInteractio
         return;
     }
 
-    if private_vc.owner_id != interaction.user.id {
+    let is_mod = match &interaction.member.as_ref() {
+        Some(member) => MOD_ROLES
+            .iter()
+            .any(|mod_role| member.roles.contains(mod_role)),
+        None => false,
+    };
+
+    if private_vc.owner_id != interaction.user.id && !is_mod {
         let _ = interaction
             .create_response(
                 &ctx.http,
