@@ -365,7 +365,7 @@ macro_rules! starboard_message_macro {
             message = message.components(vec![components]);
 
             message = message.content(format!(
-                "{} **{} |** <#{}> <@291089948709486593>",
+                "{} **{} |** <#{}>",
                 $data.starboard_config.star_emoji,
                 $starboard_msg.star_count,
                 *$starboard_msg.channel_id
