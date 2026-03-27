@@ -48,22 +48,26 @@ pub async fn anti_delete(
 ) -> Option<UserId> {
     // increase value.
     {
+        let now = Instant::now();
         let Some(mut value) = data.anti_delete_cache.val.get_mut(&guild_id) else {
             data.anti_delete_cache.val.insert(
                 guild_id,
                 Decay {
                     val: 1,
-                    last_update: Instant::now(),
+                    recorded_at: now,
+                    last_updated: now,
                 },
             );
             return None;
         };
+        let secs_since_last_updated = now.duration_since(value.last_updated).as_secs();
         if value.val > 0 && value.val < 5 {
             value.val += 1;
-            // low heat = no check.
-            if value.val < 3 {
-                return None;
-            }
+            value.last_updated = now;
+        }
+        // low heat or debounce = no check.
+        if value.val < 3 || secs_since_last_updated < 1 {
+            return None;
         }
     }
     let last_deleted = {
