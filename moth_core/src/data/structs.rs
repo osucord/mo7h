@@ -165,7 +165,8 @@ pub struct InnerCache {
 }
 pub struct Decay {
     pub val: u16,
-    pub last_update: Instant,
+    pub recorded_at: Instant,
+    pub last_updated: Instant,
 }
 
 impl AntiDeleteCache {
@@ -175,7 +176,7 @@ impl AntiDeleteCache {
         let mut to_remove = vec![];
         for mut entry in self.val.iter_mut() {
             let guild = entry.value_mut();
-            let elapsed = now.duration_since(guild.last_update).as_secs();
+            let elapsed = now.duration_since(guild.recorded_at).as_secs();
             // time without messages deleted to decay, hardcoded currently.
             if elapsed > 5 {
                 guild.val -= 1;
