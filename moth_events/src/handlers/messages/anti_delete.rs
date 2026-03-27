@@ -1,6 +1,6 @@
 use crate::Data;
 use lumi::serenity_prelude as serenity;
-use moth_core::data::structs::{Decay, InnerCache};
+use moth_core::data::structs::{ANTI_DELETE_MAX_DELETES_PER_CYCLE, Decay, InnerCache};
 use serenity::{GenericChannelId, GetMessages, GuildId, MessageId, UserId};
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
@@ -46,6 +46,7 @@ pub async fn anti_delete(
     guild_id: GuildId,
     deleted_message_id: MessageId,
 ) -> Option<UserId> {
+    *data.anti_delete_cache.deletes_per_cycle.write().await += 1; // no need to scope since there's no let binding
     // increase value.
     {
         let now = Instant::now();
@@ -65,8 +66,12 @@ pub async fn anti_delete(
             value.val += 1;
             value.last_updated = now;
         }
-        // low heat or debounce = no check.
-        if value.val < 3 || secs_since_last_updated < 1 {
+        // low heat or debounce or cycle overflow = no check.
+        if value.val < 3
+            || secs_since_last_updated < 1
+            || *data.anti_delete_cache.deletes_per_cycle.read().await
+                > ANTI_DELETE_MAX_DELETES_PER_CYCLE
+        {
             return None;
         }
     }

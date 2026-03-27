@@ -6,7 +6,7 @@ use serenity::all::{ChannelId, Member, RoleId, SecretString};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use lumi::serenity_prelude::{GenericChannelId, GuildId, MessageId, UserId};
@@ -153,11 +153,15 @@ impl DmActivity {
     }
 }
 
+pub const ANTI_DELETE_CACHE_CYCLE_TIME: Duration = Duration::from_mins(10);
+pub const ANTI_DELETE_MAX_DELETES_PER_CYCLE: usize = 1000;
 #[derive(Default)]
 pub struct AntiDeleteCache {
     pub val: DashMap<GuildId, Decay>,
     // Dashmap using guild key, containing the last deleted msg and a hashmap of stored message ids.
     pub map: DashMap<GuildId, InnerCache>,
+    // this may get a lot of writes very fast, std rwlock has reader bias which can choke writers so use fairer tokio rwlock
+    pub deletes_per_cycle: tokio::sync::RwLock<usize>,
 }
 pub struct InnerCache {
     pub last_deleted_msg: MessageId,
