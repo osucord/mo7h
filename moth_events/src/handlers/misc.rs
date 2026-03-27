@@ -1,5 +1,6 @@
 use crate::{Data, Error};
 use lumi::serenity_prelude::{self as serenity, Ready};
+use moth_core::data::structs::ANTI_DELETE_CACHE_CYCLE_TIME;
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -34,6 +35,15 @@ async fn finalize_start(ctx: &serenity::Context) {
         loop {
             interval.tick().await;
             data_clone.anti_delete_cache.decay_proc();
+        }
+    });
+
+    let data_clone = data.clone();
+    tokio::spawn(async move {
+        let mut interval: tokio::time::Interval = tokio::time::interval(ANTI_DELETE_CACHE_CYCLE_TIME);
+        loop {
+            interval.tick().await;
+            *data_clone.anti_delete_cache.deletes_per_cycle.write().await = 0;
         }
     });
 
