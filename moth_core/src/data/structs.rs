@@ -154,7 +154,7 @@ impl DmActivity {
 }
 
 pub const ANTI_DELETE_CACHE_CYCLE_TIME: Duration = Duration::from_mins(10);
-pub const ANTI_DELETE_MAX_DELETES_PER_CYCLE: usize = 1000;
+pub const ANTI_DELETE_MAX_DELETES_PER_CYCLE: usize = 250;
 #[derive(Default)]
 pub struct AntiDeleteCache {
     pub val: DashMap<GuildId, Decay>,
