@@ -38,8 +38,7 @@ async fn main() {
         .expect("Missing `MOTH_TOKEN` environment variable.");
     let intents = serenity::GatewayIntents::non_privileged()
         | serenity::GatewayIntents::MESSAGE_CONTENT
-        | serenity::GatewayIntents::GUILD_MEMBERS
-        | serenity::GatewayIntents::GUILD_PRESENCES;
+        | serenity::GatewayIntents::GUILD_MEMBERS;
 
     let mut settings = serenity::Settings::default();
     settings.max_messages = 1000;
